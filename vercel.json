@@ -1,0 +1,29 @@
+{
+  "version": 2,
+  "framework": "vite",
+  "rewrites": [
+    {
+      "source": "/v1/:path*",
+      "destination": "https://logistica.legendariosrio.com.br/v1/:path*"
+    },
+    {
+      "source": "/ws",
+      "destination": "https://logistica.legendariosrio.com.br/ws"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/v1/(.*)",
+      "headers": [
+        {
+          "key": "Authorization",
+          "value": "Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE="
+        }
+      ]
+    }
+  ]
+}
