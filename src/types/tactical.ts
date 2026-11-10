@@ -66,6 +66,7 @@ export interface SerpenteMember {
 export interface SerpenteFormation {
   id: string;
   name: string;
+  color: string; // Ex: '#06b6d4' para Serpente 1, '#f97316' para Serpente 2
   isOpen: boolean;
   createdAt: number;
   leaderId: number | null;

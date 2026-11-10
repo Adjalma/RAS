@@ -63,22 +63,37 @@ export class TacticalStorage {
     }
   }
 
-  static getSerpente(): SerpenteFormation | null {
+  static getFormations(): SerpenteFormation[] {
     try {
       const raw = localStorage.getItem(STORAGE_KEYS.SERPENTE);
-      return raw ? JSON.parse(raw) : null;
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      // Suporta retrocompatibilidade se for objeto único
+      if (!Array.isArray(parsed)) {
+        return parsed ? [parsed] : [];
+      }
+      return parsed;
     } catch {
-      return null;
+      return [];
     }
   }
 
-  static saveSerpente(formation: SerpenteFormation | null): void {
+  static saveFormations(formations: SerpenteFormation[]): void {
     try {
-      if (!formation) {
-        localStorage.removeItem(STORAGE_KEYS.SERPENTE);
-      } else {
-        localStorage.setItem(STORAGE_KEYS.SERPENTE, JSON.stringify(formation));
-      }
+      localStorage.setItem(STORAGE_KEYS.SERPENTE, JSON.stringify(formations));
     } catch {}
+  }
+
+  static getSerpente(): SerpenteFormation | null {
+    const all = this.getFormations();
+    return all.length > 0 ? all[0] : null;
+  }
+
+  static saveSerpente(formation: SerpenteFormation | null): void {
+    if (!formation) {
+      this.saveFormations([]);
+    } else {
+      this.saveFormations([formation]);
+    }
   }
 }

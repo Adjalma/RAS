@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   X,
   Users,
@@ -10,16 +10,19 @@ import {
   ArrowDown,
   MapPin,
   Battery,
-  Clock,
+  Plus,
+  Radio,
 } from 'lucide-react';
 import { LoraNode, SerpenteFormation, SerpenteMember } from '../types/tactical';
 import { calculateDistanceMeters } from '../utils/geo';
-import { TacticalStorage } from '../services/storage';
 
 interface SerpenteFormationModalProps {
   isOpen: boolean;
   onClose: () => void;
   nodes: LoraNode[];
+  formations: SerpenteFormation[];
+  onSaveFormation: (formation: SerpenteFormation) => void;
+  onRemoveFormation: (id: string) => void;
   onFocusNode: (id: number) => void;
 }
 
@@ -27,38 +30,50 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
   isOpen,
   onClose,
   nodes,
+  formations,
+  onSaveFormation,
+  onRemoveFormation,
   onFocusNode,
 }) => {
-  const [formation, setFormation] = useState<SerpenteFormation | null>(() => TacticalStorage.getSerpente());
-  const [formationName, setFormationName] = useState('Pelotão Charlie - Coluna');
-  const [maxGapMeters, setMaxGapMeters] = useState(250);
-  const [selectedLeaderId, setSelectedLeaderId] = useState<number | null>(null);
+  // 1 = Serpente 1, 2 = Serpente 2
+  const [activeTab, setActiveTab] = useState<'serpente_1' | 'serpente_2'>('serpente_1');
 
-  // Se não houver formação aberta, pré-seleciona o primeiro nó como líder
-  useEffect(() => {
-    if (!selectedLeaderId && nodes.length > 0) {
-      setSelectedLeaderId(nodes[0].id);
-    }
-  }, [nodes, selectedLeaderId]);
+  // Dados locais de criação para a Serpente 1
+  const form1 = formations.find((f) => f.id === 'serpente_1') || null;
+  const form2 = formations.find((f) => f.id === 'serpente_2') || null;
+
+  const [name1, setName1] = useState('Serpente 1 — Pelotão Alfa');
+  const [name2, setName2] = useState('Serpente 2 — Pelotão Bravo (Macaé)');
+
+  const [leader1, setLeader1] = useState<number | null>(nodes[0]?.id || null);
+  const [leader2, setLeader2] = useState<number | null>(2572); // Nó 0a0c Macaé
+
+  const [gapLimit, setGapLimit] = useState(250);
 
   if (!isOpen) return null;
 
-  // Iniciar formação Serpente
-  const handleStartFormation = () => {
-    if (!selectedLeaderId) return;
+  const handleStart = (id: 'serpente_1' | 'serpente_2') => {
+    const leaderId = id === 'serpente_1' ? leader1 : leader2;
+    const name = id === 'serpente_1' ? name1 : name2;
+    const color = id === 'serpente_1' ? '#06b6d4' : '#f97316';
 
-    const leaderNode = nodes.find((n) => n.id === selectedLeaderId);
-    const leaderPos = leaderNode?.latest_positions?.[leaderNode.latest_positions.length - 1];
+    if (!leaderId) return;
 
-    // Monta a lista ordenada de membros
-    const members: SerpenteMember[] = nodes.map((node, idx) => {
-      const isLeader = node.id === selectedLeaderId;
+    // Para Serpente 2 (Macaé), prioriza os rádios 0a0c, dc08, CCCC, DDDD
+    let assignedNodes = nodes;
+    if (id === 'serpente_2') {
+      const macaeGroup = nodes.filter((n) => n.id === 2572 || n.id === 56328 || n.name.includes('0a0c') || n.name.includes('dc08') || n.name === 'CCCC' || n.name === 'DDDD');
+      if (macaeGroup.length > 0) assignedNodes = macaeGroup;
+    }
+
+    const members: SerpenteMember[] = assignedNodes.map((node, idx) => {
+      const isLeader = node.id === leaderId;
       const pos = node.latest_positions?.[node.latest_positions.length - 1];
       return {
         nodeId: node.id,
         name: node.name,
         order: isLeader ? 0 : idx + 1,
-        role: isLeader ? 'leader' : idx === nodes.length - 1 ? 'sweep' : 'operator',
+        role: isLeader ? 'leader' : idx === assignedNodes.length - 1 ? 'sweep' : 'operator',
         lat: pos?.lat ?? null,
         lon: pos?.lon ?? null,
         battery: node.current_telemetry?.bat ?? null,
@@ -66,43 +81,39 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
       };
     });
 
-    // Ordena: líder primeiro, depois os demais
     members.sort((a, b) => a.order - b.order);
 
     const newFormation: SerpenteFormation = {
-      id: `serpente-${Date.now()}`,
-      name: formationName,
+      id,
+      name,
+      color,
       isOpen: true,
       createdAt: Date.now(),
-      leaderId: selectedLeaderId,
+      leaderId,
       members,
-      maxAcceptableGapMeters: maxGapMeters,
+      maxAcceptableGapMeters: gapLimit,
     };
 
-    setFormation(newFormation);
-    TacticalStorage.saveSerpente(newFormation);
+    onSaveFormation(newFormation);
   };
 
-  // Encerrar formação
-  const handleStopFormation = () => {
-    setFormation(null);
-    TacticalStorage.saveSerpente(null);
-  };
+  const currentActiveForm = activeTab === 'serpente_1' ? form1 : form2;
+  const currentActiveId = activeTab;
 
-  // Atualiza distâncias em relação ao líder
-  const evaluatedMembers = (formation?.members || []).map((member) => {
+  // Avaliação de distâncias da Serpente ativa
+  const evaluatedMembers = (currentActiveForm?.members || []).map((member) => {
     const node = nodes.find((n) => n.id === member.nodeId);
-    const leaderNode = nodes.find((n) => n.id === formation?.leaderId);
+    const leaderNode = nodes.find((n) => n.id === currentActiveForm?.leaderId);
 
     const memberPos = node?.latest_positions?.[node.latest_positions.length - 1];
     const leaderPos = leaderNode?.latest_positions?.[leaderNode.latest_positions.length - 1];
 
     let gap: number | undefined;
-    if (memberPos && leaderPos && member.nodeId !== formation?.leaderId) {
+    if (memberPos && leaderPos && member.nodeId !== currentActiveForm?.leaderId) {
       gap = Math.round(calculateDistanceMeters(leaderPos.lat, leaderPos.lon, memberPos.lat, memberPos.lon));
     }
 
-    const isBreached = gap != null && gap > (formation?.maxAcceptableGapMeters || 250);
+    const isBreached = gap != null && gap > (currentActiveForm?.maxAcceptableGapMeters || 250);
 
     return {
       ...member,
@@ -124,10 +135,10 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-slate-100 tracking-wider">
-                FORMAÇÃO TÁTICA SERPENTE
+                CONTROLE DE MÚLTIPLAS SERPENTES TÁTICAS
               </h2>
               <p className="text-[11px] text-slate-400">
-                Alinhamento e controle de dispersão da tropa/equipe em marcha
+                Monitoramento simultâneo de 2 pelotões em marcha pelo mapa
               </p>
             </div>
           </div>
@@ -139,22 +150,59 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
           </button>
         </div>
 
-        {/* Conteúdo */}
-        <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-5">
-          {!formation?.isOpen ? (
-            /* Formulário de Inicialização */
+        {/* Seletor de Serpentes: 1 e 2 */}
+        <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-4 pt-2 gap-3 text-xs">
+          <button
+            onClick={() => setActiveTab('serpente_1')}
+            className={`px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'serpente_1'
+                ? 'border-cyan-400 text-cyan-300 bg-cyan-950/30'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+            <span>SERPENTE 1 (ALFA)</span>
+            {form1?.isOpen && (
+              <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                ATIVA
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('serpente_2')}
+            className={`px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-2 ${
+              activeTab === 'serpente_2'
+                ? 'border-orange-500 text-orange-400 bg-orange-950/30'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
+            <span>SERPENTE 2 (BRAVO / MACAÉ)</span>
+            {form2?.isOpen && (
+              <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
+                ATIVA
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Conteúdo da Serpente Ativa */}
+        <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-4 text-xs">
+          {!currentActiveForm?.isOpen ? (
+            /* Inicializar Formação */
             <div className="flex flex-col gap-4">
-              <div className="p-4 rounded-xl bg-cyan-950/30 border border-cyan-500/30 text-xs text-cyan-300 leading-relaxed">
-                O protocolo <strong>Serpente</strong> monitora a coluna inteira em campo. Selecione o líder (guia da ponta) e o raio máximo de dispersão. Caso qualquer operador se afaste além do limite de segurança ou perca sinal LoRa, o sistema dispara alertas imediatos.
+              <div className="p-3.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 leading-relaxed">
+                Defina os parâmetros para a <strong className={activeTab === 'serpente_1' ? 'text-cyan-400' : 'text-orange-400'}>{activeTab === 'serpente_1' ? 'Serpente 1' : 'Serpente 2 (Macaé)'}</strong>. O mapa traçará uma linha de comando exclusiva para esta coluna.
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex flex-col gap-1.5">
                   <label className="text-slate-400 font-semibold">Nome da Formação:</label>
                   <input
                     type="text"
-                    value={formationName}
-                    onChange={(e) => setFormationName(e.target.value)}
+                    value={activeTab === 'serpente_1' ? name1 : name2}
+                    onChange={(e) => activeTab === 'serpente_1' ? setName1(e.target.value) : setName2(e.target.value)}
                     className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"
                   />
                 </div>
@@ -167,72 +215,83 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
                       min="50"
                       max="2000"
                       step="50"
-                      value={maxGapMeters}
-                      onChange={(e) => setMaxGapMeters(Number(e.target.value))}
+                      value={gapLimit}
+                      onChange={(e) => setGapLimit(Number(e.target.value))}
                       className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"
                     />
-                    <span className="text-slate-400 text-xs">metros</span>
+                    <span className="text-slate-400">metros</span>
                   </div>
                 </div>
               </div>
 
               <div className="flex flex-col gap-2">
-                <label className="text-xs text-slate-400 font-semibold">Definir Líder da Ponta (Ponta da Serpente):</label>
+                <label className="text-slate-400 font-semibold">Escolher Líder da Ponta:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {nodes.map((node) => (
-                    <button
-                      key={node.id}
-                      type="button"
-                      onClick={() => setSelectedLeaderId(node.id)}
-                      className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between ${
-                        selectedLeaderId === node.id
-                          ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 font-bold shadow-cyan-glow'
-                          : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
-                      }`}
-                    >
-                      <span>{node.name}</span>
-                      {selectedLeaderId === node.id && <CheckCircle className="w-4 h-4 text-cyan-400" />}
-                    </button>
-                  ))}
+                  {nodes.map((node) => {
+                    const isChosen = (activeTab === 'serpente_1' ? leader1 : leader2) === node.id;
+                    return (
+                      <button
+                        key={node.id}
+                        type="button"
+                        onClick={() => activeTab === 'serpente_1' ? setLeader1(node.id) : setLeader2(node.id)}
+                        className={`p-2.5 rounded-lg border text-left text-xs transition-colors flex items-center justify-between ${
+                          isChosen
+                            ? 'bg-cyan-950/80 border-cyan-400 text-cyan-300 font-bold'
+                            : 'bg-slate-900/60 border-slate-800 text-slate-300 hover:bg-slate-800'
+                        }`}
+                      >
+                        <span>{node.name}</span>
+                        {isChosen && <CheckCircle className="w-4 h-4 text-cyan-400" />}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               <button
-                onClick={handleStartFormation}
-                disabled={!selectedLeaderId}
-                className="mt-2 py-3 px-4 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm tracking-wider flex items-center justify-center gap-2 shadow-cyan-glow transition-all disabled:opacity-50"
+                onClick={() => handleStart(activeTab)}
+                className={`mt-2 py-3 px-4 rounded-xl font-bold text-slate-950 text-xs flex items-center justify-center gap-2 shadow-lg transition-all ${
+                  activeTab === 'serpente_1'
+                    ? 'bg-cyan-500 hover:bg-cyan-400 shadow-cyan-glow'
+                    : 'bg-orange-500 hover:bg-orange-400 shadow-orange-glow'
+                }`}
               >
                 <Play className="w-4 h-4 fill-slate-950" />
-                <span>INICIAR PROTOCOLO SERPENTE</span>
+                <span>INICIAR {activeTab === 'serpente_1' ? 'SERPENTE 1' : 'SERPENTE 2'}</span>
               </button>
             </div>
           ) : (
-            /* Monitor da Formação Ativa */
+            /* Monitoramento Ativo */
             <div className="flex flex-col gap-4">
-              <div className="p-3.5 rounded-xl bg-slate-900/90 border border-cyan-500/30 flex items-center justify-between">
+              <div className="p-3.5 rounded-xl bg-slate-900/90 border border-slate-800 flex items-center justify-between">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                    <span className="font-bold text-sm text-slate-100">{formation.name}</span>
+                    <span
+                      className="w-3 h-3 rounded-full animate-ping"
+                      style={{ backgroundColor: currentActiveForm.color }}
+                    />
+                    <span className="font-bold text-sm text-slate-100">
+                      {currentActiveForm.name}
+                    </span>
                   </div>
                   <p className="text-[11px] text-slate-400 mt-0.5">
-                    Distância Máx. Tolerada: <span className="text-cyan-300 font-bold">{formation.maxAcceptableGapMeters}m</span>
+                    Tolerância de Distância: <span className="text-cyan-300 font-bold">{currentActiveForm.maxAcceptableGapMeters}m</span>
                   </p>
                 </div>
 
                 <button
-                  onClick={handleStopFormation}
+                  onClick={() => onRemoveFormation(currentActiveId)}
                   className="py-1.5 px-3 rounded-lg bg-red-950/80 border border-red-500/40 text-red-400 hover:bg-red-900/60 text-xs font-bold flex items-center gap-1.5 transition-colors"
                 >
                   <Square className="w-3.5 h-3.5 fill-red-400" />
-                  <span>FECHAR SERPENTE</span>
+                  <span>ENCERRAR</span>
                 </button>
               </div>
 
-              {/* Coluna Visual da Formação */}
+              {/* Membros da Linha */}
               <div className="flex flex-col gap-2">
                 {evaluatedMembers.map((member, idx) => {
-                  const isLeader = member.nodeId === formation.leaderId;
+                  const isLeader = member.nodeId === currentActiveForm.leaderId;
                   return (
                     <React.Fragment key={member.nodeId}>
                       <div
@@ -250,7 +309,8 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
                       >
                         <div className="flex items-center gap-3">
                           <span className="w-6 h-6 rounded-full bg-slate-800 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-xs">
-                            {idx + 1}</span>
+                            {idx + 1}
+                          </span>
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-bold text-sm text-slate-100">
@@ -269,7 +329,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
                               )}
                             </div>
                             <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-3">
-                              <span>Bat: {member.battery != null ? `${member.battery}%` : '--'}</span>
+                              <span>Bateria: {member.battery != null ? `${member.battery}%` : '--'}</span>
                             </div>
                           </div>
                         </div>

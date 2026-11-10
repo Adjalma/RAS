@@ -25,6 +25,9 @@ export const App: React.FC = () => {
     refresh,
     loadNodeFullHistory,
     simulateNodeTelemetry,
+    formations,
+    saveFormation,
+    removeFormation,
     config,
     updateConfig,
   } = useTacticalData();
@@ -36,8 +39,8 @@ export const App: React.FC = () => {
   const [isAddNodeOpen, setIsAddNodeOpen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Verifica se a Serpente está ativa no storage
-  const hasActiveSerpente = Boolean(TacticalStorage.getSerpente()?.isOpen);
+  // Verifica se há alguma Serpente ativa
+  const hasActiveSerpente = formations.some((f) => f.isOpen);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -99,6 +102,7 @@ export const App: React.FC = () => {
             showTrails={config.showTrails}
             showMeshLinks={config.showMeshLinks}
             showAccuracyCircles={config.showAccuracyCircles}
+            formations={formations}
           />
         )}
 
@@ -117,6 +121,9 @@ export const App: React.FC = () => {
         isOpen={isSerpenteOpen}
         onClose={() => setIsSerpenteOpen(false)}
         nodes={nodes}
+        formations={formations}
+        onSaveFormation={saveFormation}
+        onRemoveFormation={removeFormation}
         onFocusNode={(id) => setSelectedNodeId(id)}
       />
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
-import { LoraNode, MapTileLayer, PositionData } from '../types/tactical';
+import { LoraNode, MapTileLayer, PositionData, SerpenteFormation } from '../types/tactical';
 import { formatTacticalCoords, calculateDistanceMeters } from '../utils/geo';
-import { Layers, Crosshair, ZoomIn, ZoomOut, Radio } from 'lucide-react';
+import { Layers, Crosshair, ZoomIn, ZoomOut, Radio, Users } from 'lucide-react';
 
 interface TacticalMapProps {
   nodes: LoraNode[];
@@ -11,6 +11,7 @@ interface TacticalMapProps {
   showTrails: boolean;
   showMeshLinks: boolean;
   showAccuracyCircles: boolean;
+  formations?: SerpenteFormation[];
 }
 
 // Provedores 100% livres de alta velocidade e sem necessidade de API key
@@ -45,6 +46,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   showTrails,
   showMeshLinks,
   showAccuracyCircles,
+  formations = [],
 }) => {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -287,7 +289,30 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         }
       }
     }
-  }, [nodesWithValidPos, selectedNodeId, showTrails, showMeshLinks, showAccuracyCircles, onSelectNode]);
+    // Renderiza as Formações das Múltiplas Serpentes no Mapa
+    formations.forEach((form) => {
+      if (!form.isOpen || form.members.length < 2) return;
+      const formCoords: [number, number][] = [];
+
+      form.members.forEach((m) => {
+        const liveNode = nodes.find((n) => n.id === m.nodeId);
+        const pos = liveNode?.latest_positions?.[liveNode.latest_positions.length - 1];
+        if (pos && typeof pos.lat === 'number' && typeof pos.lon === 'number') {
+          formCoords.push([pos.lat, pos.lon]);
+        }
+      });
+
+      if (formCoords.length > 1) {
+        // Linha tática da Serpente conectando a tropa
+        L.polyline(formCoords, {
+          color: form.color || '#06b6d4',
+          weight: 4,
+          opacity: 0.85,
+          dashArray: '6, 6',
+        }).addTo(trailsLayerRef.current!);
+      }
+    });
+  }, [nodesWithValidPos, selectedNodeId, showTrails, showMeshLinks, showAccuracyCircles, formations, onSelectNode]);
 
   // Centralizar no nó selecionado
   useEffect(() => {

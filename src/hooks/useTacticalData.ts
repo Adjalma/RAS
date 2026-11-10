@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { LoraNode, PositionData, WSBaseMessage, TacticalConfig } from '../types/tactical';
+import { LoraNode, PositionData, WSBaseMessage, TacticalConfig, SerpenteFormation } from '../types/tactical';
 import { api } from '../services/api';
 import { wsService, WSConnectionStatus } from '../services/websocket';
 import { TacticalStorage, DEFAULT_TACTICAL_CONFIG } from '../services/storage';
@@ -14,8 +14,40 @@ export interface TacticalAlert {
   timestamp: number;
 }
 
+// Rádios padrão conhecidos de Macaé
+const DEFAULT_MACAE_NODES: Record<number, LoraNode> = {
+  2572: {
+    id: 2572,
+    name: '0a0c (Macaé 1)',
+    color: '#06b6d4',
+    status: 'active',
+    isOnline: true,
+    current_telemetry: { id: 2572, bat: 94, received_at: new Date().toISOString() },
+    latest_positions: [
+      { id: 2572, lat: -22.3768, lon: -41.7869, alt: 22, acc: 4, sat: 7, received_at: new Date().toISOString(), speed: 0, heading: 45 }
+    ],
+    lastSeen: new Date().toISOString(),
+  },
+  56328: {
+    id: 56328,
+    name: 'dc08 (Macaé 2)',
+    color: '#f97316',
+    status: 'active',
+    isOnline: true,
+    current_telemetry: { id: 56328, bat: 89, received_at: new Date().toISOString() },
+    latest_positions: [
+      { id: 56328, lat: -22.3812, lon: -41.7825, alt: 18, acc: 5, sat: 6, received_at: new Date().toISOString(), speed: 0, heading: 90 }
+    ],
+    lastSeen: new Date().toISOString(),
+  },
+};
+
 export function useTacticalData() {
-  const [nodes, setNodes] = useState<Record<number, LoraNode>>(() => TacticalStorage.getCachedNodes());
+  const [nodes, setNodes] = useState<Record<number, LoraNode>>(() => {
+    const cached = TacticalStorage.getCachedNodes();
+    return { ...DEFAULT_MACAE_NODES, ...cached };
+  });
+  const [formations, setFormations] = useState<SerpenteFormation[]>(() => TacticalStorage.getFormations());
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -269,6 +301,32 @@ export function useTacticalData() {
     }
   }, []);
 
+  /**
+   * Gerenciamento de Múltiplas Serpentes
+   */
+  const saveFormation = useCallback((formation: SerpenteFormation) => {
+    setFormations((prev) => {
+      const filtered = prev.filter((f) => f.id !== formation.id);
+      const next = [...filtered, formation];
+      TacticalStorage.saveFormations(next);
+      return next;
+    });
+    addAlert({
+      nodeId: formation.leaderId || 0,
+      nodeName: formation.name,
+      type: 'new_node',
+      message: `Formação ${formation.name} iniciada e monitorada na malha.`,
+    });
+  }, [addAlert]);
+
+  const removeFormation = useCallback((formationId: string) => {
+    setFormations((prev) => {
+      const next = prev.filter((f) => f.id !== formationId);
+      TacticalStorage.saveFormations(next);
+      return next;
+    });
+  }, []);
+
   // Atualiza credenciais dos serviços se config mudar
   const updateConfig = useCallback((newConfig: Partial<TacticalConfig>) => {
     setConfig((prev) => {
@@ -318,6 +376,9 @@ export function useTacticalData() {
     refresh: fetchNodes,
     loadNodeFullHistory,
     simulateNodeTelemetry,
+    formations,
+    saveFormation,
+    removeFormation,
     config,
     updateConfig,
   };
