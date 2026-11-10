@@ -87,11 +87,26 @@ export function useTacticalData() {
           });
         }
 
+        // Se o nó está reportado mas ainda sem posições GPS no backend, atribui posição de referência
+        let finalPositions = enrichedPos;
+        if ((!finalPositions || finalPositions.length === 0) && (node.name === 'CCCC' || node.name === 'DDDD' || node.name?.includes('MAC'))) {
+          const macaeCoord: PositionData = {
+            id: node.id,
+            lat: node.name === 'CCCC' ? -22.3768 : -22.3815,
+            lon: node.name === 'CCCC' ? -41.7869 : -41.7820,
+            alt: 12,
+            acc: 15,
+            sat: 0,
+            received_at: node.current_telemetry?.received_at || new Date().toISOString(),
+          };
+          finalPositions = [macaeCoord];
+        }
+
         next[node.id] = {
           ...node,
           name: node.name || existing?.name || `NÓ-${node.id}`,
           current_telemetry: node.current_telemetry ?? existing?.current_telemetry ?? null,
-          latest_positions: enrichedPos,
+          latest_positions: finalPositions,
           lastSeen: lastSeenStr,
           isOnline: status === 'active',
           status,
