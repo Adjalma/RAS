@@ -59,7 +59,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         };
       case 'polling_fallback':
         return {
-          text: 'POLLING 4s',
+          text: 'DEGRADADO · POLLING 4s',
           color: 'text-cyan-400 bg-cyan-950/60 border-cyan-500/40',
           icon: <Activity className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />,
         };
@@ -71,9 +71,9 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         };
       default:
         return {
-          text: 'OFFLINE',
-          color: 'text-red-400 bg-red-950/60 border-red-500/40',
-          icon: <WifiOff className="w-3.5 h-3.5 text-red-400" />,
+          text: 'SEM SINAL',
+          color: 'text-slate-400 bg-slate-800/60 border-slate-700',
+          icon: <WifiOff className="w-3.5 h-3.5 text-slate-400" />,
         };
     }
   };

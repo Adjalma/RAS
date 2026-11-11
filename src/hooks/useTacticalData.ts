@@ -172,16 +172,20 @@ export function useTacticalData() {
   }, [addAlert]);
 
   /**
-   * Busca lista de nós no backend
+   * Busca lista de nós no backend.
+   * Retorna true quando a leitura foi bem-sucedida, para que o serviço de
+   * WebSocket possa tratar o polling como trafego de dados valido.
    */
-  const fetchNodes = useCallback(async () => {
+  const fetchNodes = useCallback(async (): Promise<boolean> => {
     try {
       const raw = await api.getNodes(config.trailDurationHours);
       processNodesList(raw);
       setError(null);
+      return true;
     } catch (err: any) {
       console.error('[Tactical] Erro ao sincronizar nós:', err);
       setError(err?.message || 'Falha de conexão com a API de rastreamento');
+      return false;
     }
   }, [config.trailDurationHours, processNodesList]);
 

@@ -79,6 +79,22 @@ export function getNodeColor(id: number): string {
 }
 
 /**
+ * Verifica se uma posição tem fix de GPS confiável.
+ *
+ * Radio Meshtastic com GPS desligado ou sem visada de satelite continua
+ * publicando o pacote de posicao, mas com `sat=0` e a coordenada fixa
+ * configurada no firmware (ou a ultima conhecida). Esses valores podem
+ * ficar varios quilometros do ponto real, entao nao devem ser usados
+ * para posicionar o operador no mapa.
+ */
+export function hasGpsFix(pos: { sat?: number | null } | null | undefined): boolean {
+  if (!pos) return false;
+  // Sem o campo `sat` (backend antigo), aceitamos a posicao.
+  if (pos.sat == null) return true;
+  return pos.sat > 0;
+}
+
+/**
  * Enriquece posições com velocidade calculada e rumo quando não fornecidos
  */
 export function enrichPositions(positions: PositionData[]): PositionData[] {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import { LoraNode, MapTileLayer, PositionData, SerpenteFormation } from '../types/tactical';
-import { formatTacticalCoords, calculateDistanceMeters } from '../utils/geo';
+import { formatTacticalCoords, calculateDistanceMeters, hasGpsFix } from '../utils/geo';
 import { Layers, Crosshair, ZoomIn, ZoomOut, Radio, Users } from 'lucide-react';
 
 interface TacticalMapProps {
@@ -67,7 +67,10 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false);
   const hasAutoCenteredRef = useRef(false);
 
-  // Posições mais recentes válidas por nó
+  // Posições mais recentes válidas por nó.
+  // Um fix só é confiável quando o GPS reporta satélites. Radio com sat=0
+  // devolve a posição fixa do firmware (vários km do ponto real), então
+  // é tratado como "sem GPS" e não é desenhado no mapa.
   const nodesWithValidPos = useMemo(() => {
     return nodes.filter((n) => {
       const pos = n.latest_positions;
@@ -78,7 +81,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         typeof last.lon === 'number' &&
         !isNaN(last.lat) &&
         !isNaN(last.lon) &&
-        !(last.lat === 0 && last.lon === 0)
+        !(last.lat === 0 && last.lon === 0) &&
+        hasGpsFix(last)
       );
     });
   }, [nodes]);

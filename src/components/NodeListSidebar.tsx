@@ -14,6 +14,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { LoraNode } from '../types/tactical';
+import { hasGpsFix } from '../utils/geo';
 
 interface NodeListSidebarProps {
   nodes: LoraNode[];
@@ -147,7 +148,11 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                 const positions = node.latest_positions || [];
                 const lastPos = positions.length > 0 ? positions[positions.length - 1] : null;
                 const battery = node.current_telemetry?.bat ?? null;
-                const hasGps = lastPos != null && lastPos.lat !== 0;
+                // Posicao so e confiavel com sateliteReportado. Radio com
+                // sat=0 publica a posicao fixa do firmware, que pode estar
+                // varios km do ponto real.
+                const hasGps = lastPos != null && lastPos.lat !== 0 && hasGpsFix(lastPos);
+                const noFix = lastPos != null && !hasGpsFix(lastPos);
 
                 return (
                   <div
@@ -209,6 +214,10 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                           <Gauge className="w-3 h-3 text-amber-400" />
                           <span>{lastPos.speed ? `${lastPos.speed.toFixed(0)} km/h` : '0 km/h'}</span>
                         </div>
+                      </div>
+                    ) : noFix ? (
+                      <div className="py-1 text-[10px] font-tactical text-amber-400/90 italic">
+                        Sem fix GPS ({lastPos.sat} sats) — posicao nao confiavel
                       </div>
                     ) : (
                       <div className="py-1 text-[10px] font-tactical text-slate-500 italic">
