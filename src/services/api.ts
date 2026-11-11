@@ -52,10 +52,21 @@ export class TacticalApiClient {
 
   /**
    * GET /v1/node
-   * Retorna todos os rastreadores com últimas posições e telemetria atual
+   * Retorna todos os rastreadores com últimas posições e telemetria atual.
+   *
+   * O backend filtra por um timestamp ABSOLUTO no parâmetro `from`
+   * (formato `2006-01-02T15:04:05`). Sem ele, o servidor aplica a janela
+   * default de 3 horas e devolve `latest_positions` vazio para os rádios
+   * que não transmitiram nesse intervalo.
    */
   async getNodes(hours?: number): Promise<LoraNode[]> {
-    const query = hours ? `?hours=${hours}` : '';
+    let query = '';
+    if (hours && hours > 0) {
+      const from = new Date(Date.now() - hours * 3600 * 1000);
+      // Formato Go: 2006-01-02T15:04:05 (UTC, sem milissegundos, sem Z)
+      const stamp = from.toISOString().slice(0, 19);
+      query = `?from=${encodeURIComponent(stamp)}`;
+    }
     const data = await this.request<NodeListResponse>(`/v1/node${query}`);
     return data.nodes || [];
   }

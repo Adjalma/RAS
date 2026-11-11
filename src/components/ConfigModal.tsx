@@ -9,10 +9,10 @@ import {
   Wifi,
   Key,
   Clock,
-  Volume2,
+  Trash2,
 } from 'lucide-react';
 import { TacticalConfig } from '../types/tactical';
-import { DEFAULT_TACTICAL_CONFIG } from '../services/storage';
+import { TacticalStorage, DEFAULT_TACTICAL_CONFIG } from '../services/storage';
 
 interface ConfigModalProps {
   isOpen: boolean;
@@ -44,6 +44,11 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
 
   const handleResetDefaults = () => {
     setFormData(DEFAULT_TACTICAL_CONFIG);
+  };
+
+  const handleClearCache = () => {
+    TacticalStorage.clearCachedNodes();
+    window.location.reload();
   };
 
   return (
@@ -159,22 +164,36 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
               className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400"
             >
               <option value={1}>Última 1 hora</option>
-              <option value={3}>Últimas 3 horas (Padrão Backend)</option>
+              <option value={3}>Últimas 3 horas (Padrão do Backend)</option>
               <option value={6}>Últimas 6 horas</option>
               <option value={24}>Últimas 24 horas</option>
+              <option value={72}>Últimas 72 horas</option>
+              <option value={168}>Últimos 7 dias</option>
+              <option value={8760}>Histórico completo (1 ano)</option>
             </select>
           </div>
 
           {/* Rodapé de Ações */}
           <div className="flex items-center justify-between pt-3 border-t border-slate-800 mt-2">
-            <button
-              type="button"
-              onClick={handleResetDefaults}
-              className="px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1.5 transition-colors"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Restaurar Padrões</span>
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={handleResetDefaults}
+                className="px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 text-xs flex items-center gap-1.5 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>Restaurar Padrões</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleClearCache}
+                title="Descarta os nós guardados no navegador e força nova leitura do servidor"
+                className="px-3 py-2 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-amber-950/40 text-xs flex items-center gap-1.5 transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Limpar Cache Local</span>
+              </button>
+            </div>
 
             <div className="flex items-center gap-2">
               <button

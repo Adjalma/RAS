@@ -51,6 +51,13 @@ export class TacticalStorage {
     }
   }
 
+  /** Limpa o cache local de nós (usar após mudanças de backend ou correções). */
+  static clearCachedNodes(): void {
+    try {
+      localStorage.removeItem(STORAGE_KEYS.CACHED_NODES);
+    } catch {}
+  }
+
   static saveNodes(nodes: LoraNode[]): void {
     try {
       const map: Record<number, LoraNode> = {};

@@ -14,39 +14,8 @@ export interface TacticalAlert {
   timestamp: number;
 }
 
-// Rádios padrão conhecidos de Macaé
-const DEFAULT_MACAE_NODES: Record<number, LoraNode> = {
-  2572: {
-    id: 2572,
-    name: '0a0c (Macaé 1)',
-    color: '#06b6d4',
-    status: 'active',
-    isOnline: true,
-    current_telemetry: { id: 2572, bat: 94, received_at: new Date().toISOString() },
-    latest_positions: [
-      { id: 2572, lat: -22.3768, lon: -41.7869, alt: 22, acc: 4, sat: 7, received_at: new Date().toISOString(), speed: 0, heading: 45 }
-    ],
-    lastSeen: new Date().toISOString(),
-  },
-  56328: {
-    id: 56328,
-    name: 'dc08 (Macaé 2)',
-    color: '#f97316',
-    status: 'active',
-    isOnline: true,
-    current_telemetry: { id: 56328, bat: 89, received_at: new Date().toISOString() },
-    latest_positions: [
-      { id: 56328, lat: -22.3812, lon: -41.7825, alt: 18, acc: 5, sat: 6, received_at: new Date().toISOString(), speed: 0, heading: 90 }
-    ],
-    lastSeen: new Date().toISOString(),
-  },
-};
-
 export function useTacticalData() {
-  const [nodes, setNodes] = useState<Record<number, LoraNode>>(() => {
-    const cached = TacticalStorage.getCachedNodes();
-    return { ...DEFAULT_MACAE_NODES, ...cached };
-  });
+  const [nodes, setNodes] = useState<Record<number, LoraNode>>(() => TacticalStorage.getCachedNodes());
   const [formations, setFormations] = useState<SerpenteFormation[]>(() => TacticalStorage.getFormations());
   const [selectedNodeId, setSelectedNodeId] = useState<number | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -119,26 +88,13 @@ export function useTacticalData() {
           });
         }
 
-        // Se o nó está reportado mas ainda sem posições GPS no backend, atribui posição de referência
-        let finalPositions = enrichedPos;
-        if ((!finalPositions || finalPositions.length === 0) && (node.name === 'CCCC' || node.name === 'DDDD' || node.name?.includes('MAC'))) {
-          const macaeCoord: PositionData = {
-            id: node.id,
-            lat: node.name === 'CCCC' ? -22.3768 : -22.3815,
-            lon: node.name === 'CCCC' ? -41.7869 : -41.7820,
-            alt: 12,
-            acc: 15,
-            sat: 0,
-            received_at: node.current_telemetry?.received_at || new Date().toISOString(),
-          };
-          finalPositions = [macaeCoord];
-        }
-
+        // Nó sem posições GPS no backend: mantém vazio. A UI sinaliza
+        // "aguardando fix GPS" em vez de inventar uma coordenada.
         next[node.id] = {
           ...node,
           name: node.name || existing?.name || `NÓ-${node.id}`,
           current_telemetry: node.current_telemetry ?? existing?.current_telemetry ?? null,
-          latest_positions: finalPositions,
+          latest_positions: enrichedPos,
           lastSeen: lastSeenStr,
           isOnline: status === 'active',
           status,
@@ -196,10 +152,17 @@ export function useTacticalData() {
    */
   const handleWsMessage = useCallback((msg: WSBaseMessage) => {
     console.debug('[WS] Mensagem recebida:', msg);
-    playTacticalBeep(1200, 0.05);
 
     const nodeId = msg.node_id || msg.id;
     if (!nodeId) return;
+
+    // Bip tático apenas em eventos relevantes (nova posição ou bateria crítica),
+    // evitando bipe contínuo no ruído de telemetria.
+    const isPosition = msg.lat != null && msg.lon != null;
+    const isCriticalBattery = msg.bat != null && msg.bat <= 15;
+    if (isPosition || isCriticalBattery) {
+      playTacticalBeep(isCriticalBattery ? 640 : 1200, 0.05);
+    }
 
     setNodes((prev) => {
       const existing = prev[nodeId] || {
@@ -229,7 +192,17 @@ export function useTacticalData() {
           received_at: msg.received_at ?? msg.timestamp ?? new Date().toISOString(),
         };
         const oldPositions = updated.latest_positions || [];
-        updated.latest_positions = enrichPositions([...oldPositions, newPos]);
+        // Evita duplicar o mesmo fix (o polling REST reenvia o último ponto)
+        const lastOld = oldPositions[oldPositions.length - 1];
+        const isDuplicate =
+          lastOld != null &&
+          lastOld.lat === newPos.lat &&
+          lastOld.lon === newPos.lon &&
+          lastOld.received_at === newPos.received_at;
+
+        if (!isDuplicate) {
+          updated.latest_positions = enrichPositions([...oldPositions, newPos]);
+        }
         updated.lastSeen = newPos.received_at;
         updated.status = 'active';
         updated.isOnline = true;
