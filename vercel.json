@@ -1,6 +1,8 @@
 {
-  "version": 2,
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "vite",
+  "buildCommand": "npm run build",
+  "outputDirectory": "dist",
   "rewrites": [
     {
       "source": "/v1/:path*",
@@ -11,19 +13,8 @@
       "destination": "https://logistica.legendariosrio.com.br/ws"
     },
     {
-      "source": "/(.*)",
+      "source": "/((?!assets/|logo.png|favicon.svg).*)",
       "destination": "/index.html"
-    }
-  ],
-  "headers": [
-    {
-      "source": "/v1/(.*)",
-      "headers": [
-        {
-          "key": "Authorization",
-          "value": "Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE="
-        }
-      ]
     }
   ]
 }
