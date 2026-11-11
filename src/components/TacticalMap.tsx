@@ -221,8 +221,17 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       }
 
       // HTML do ícone
+      // Quando o GPS é antigo mas o enlace esta vivo, o marcador fica
+      // esmaecido com selo de "GPS antigo" para nao passar por posicao atual.
+      const posAgeMin = node.positionAgeMinutes ?? (latestPos.received_at
+        ? Math.max(0, Math.round((Date.now() - new Date(latestPos.received_at).getTime()) / 60000))
+        : null);
+      const isStaleGps = posAgeMin != null && posAgeMin > 15;
+      const opacity = isStaleGps ? 0.55 : 1;
+
       const markerHtml = `
-        <div class="relative flex items-center justify-center cursor-pointer" style="width: 44px; height: 44px; margin-left: -22px; margin-top: -22px;">
+        <div class="relative flex items-center justify-center cursor-pointer" style="width: 44px; height: 44px; margin-left: -22px; margin-top: -22px; opacity: ${opacity};">
+          ${isStaleGps ? `<div class="absolute w-8 h-8 rounded-full border border-dashed" style="border-color: ${nodeColor}66;"></div>` : ''}
           <div class="relative flex items-center justify-center w-7 h-7 rounded-full shadow-lg ${isSelected ? 'scale-125 ring-2 ring-white' : ''}" style="background: #0b1324; border: 2px solid ${nodeColor};">
             <div class="w-full h-full flex items-center justify-center" style="transform: rotate(${heading}deg);">
               <svg class="w-3 h-3" viewBox="0 0 24 24" fill="${nodeColor}">
@@ -233,6 +242,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           <div class="absolute -top-6 whitespace-nowrap px-1.5 py-0.2 rounded text-[9px] font-tactical font-semibold flex items-center gap-1 shadow pointer-events-none" style="background: rgba(11, 19, 36, 0.95); border: 1px solid ${nodeColor}88; color: #fff;">
             <span>${node.name}</span>
             ${batteryPercent != null ? `<span style="color: ${batColor}; font-weight: bold;">${batteryPercent}%</span>` : ''}
+            ${isStaleGps ? `<span style="color: #fb923c; font-weight: bold;" title="Ultimo GPS ha ${posAgeMin} min">GPS ${posAgeMin}m</span>` : ''}
           </div>
         </div>
       `;

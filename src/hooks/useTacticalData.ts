@@ -68,15 +68,32 @@ export function useTacticalData() {
         const enrichedPos = node.latest_positions ? enrichPositions(node.latest_positions) : existing?.latest_positions ?? null;
 
         const lastPos = enrichedPos && enrichedPos.length > 0 ? enrichedPos[enrichedPos.length - 1] : null;
-        const lastSeenStr = lastPos?.received_at || node.current_telemetry?.received_at || existing?.lastSeen;
+
+        // O ENLACE é considered vivo se houve QUALQUER pacote (posição ou
+        // telemetria). A POSIÇÃO GPS é um dado separado e pode ser antiga.
+        const positionAt = lastPos?.received_at ?? existing?.lastPositionAt ?? null;
+        const telemetryAt = node.current_telemetry?.received_at ?? existing?.current_telemetry?.received_at ?? null;
+
+        const newestEvent = [positionAt, telemetryAt]
+          .filter((v): v is string => !!v)
+          .sort()
+          .pop() ?? null;
 
         let status: 'active' | 'stale' | 'offline' = 'offline';
-        if (lastSeenStr) {
-          const ageMinutes = (now - new Date(lastSeenStr).getTime()) / (1000 * 60);
+        if (newestEvent) {
+          const ageMinutes = (now - new Date(newestEvent).getTime()) / (1000 * 60);
           if (ageMinutes <= 5) status = 'active';
           else if (ageMinutes <= 15) status = 'stale';
           else status = 'offline';
         }
+
+        // Idade da posição GPS em minutos (null se nunca houve fix)
+        const positionAgeMinutes = positionAt
+          ? Math.max(0, Math.round((now - new Date(positionAt).getTime()) / 60000))
+          : null;
+
+        // Positions podem vir vazias na janela; nesse caso o histórico
+        // completo do nó é consultado em background (ver fetchNodes).
 
         // Checa alerta de bateria crítica (< 15%)
         if (node.current_telemetry && node.current_telemetry.bat <= 15 && (!existing?.current_telemetry || existing.current_telemetry.bat > 15)) {
@@ -88,14 +105,14 @@ export function useTacticalData() {
           });
         }
 
-        // Nó sem posições GPS no backend: mantém vazio. A UI sinaliza
-        // "aguardando fix GPS" em vez de inventar uma coordenada.
         next[node.id] = {
           ...node,
           name: node.name || existing?.name || `NÓ-${node.id}`,
           current_telemetry: node.current_telemetry ?? existing?.current_telemetry ?? null,
           latest_positions: enrichedPos,
-          lastSeen: lastSeenStr,
+          lastSeen: newestEvent,
+          lastPositionAt: positionAt,
+          positionAgeMinutes,
           isOnline: status === 'active',
           status,
           color: existing?.color || getNodeColor(node.id),
@@ -108,7 +125,8 @@ export function useTacticalData() {
     setLastSyncTime(new Date());
     setLoading(false);
 
-    // Puxa detalhe dos nós sem posições na janela recente para recuperar últimas coordenadas gravadas
+    // Nodos sem posicoes na janela atual: busca o historico completo do no
+    // para recuperar a ultima coordenada gravada (pode ser de horas atras).
     incomingNodes.forEach((node) => {
       if (!node.latest_positions || node.latest_positions.length === 0) {
         api.getNodeDetail(node.id).then((detail) => {
@@ -118,12 +136,32 @@ export function useTacticalData() {
               if (!curr) return prev;
               const enriched = enrichPositions(detail.latest_positions || []);
               const lastPos = enriched[enriched.length - 1];
+              const positionAt = lastPos.received_at;
+              const newest = [positionAt, curr.current_telemetry?.received_at]
+                .filter((v): v is string => !!v)
+                .sort()
+                .pop() ?? null;
+
+              let status: 'active' | 'stale' | 'offline' = 'offline';
+              if (newest) {
+                const ageMin = (Date.now() - new Date(newest).getTime()) / 60000;
+                if (ageMin <= 5) status = 'active';
+                else if (ageMin <= 15) status = 'stale';
+                else status = 'offline';
+              }
+
               return {
                 ...prev,
                 [node.id]: {
                   ...curr,
                   latest_positions: enriched,
-                  lastSeen: lastPos.received_at || curr.lastSeen,
+                  lastPositionAt: positionAt,
+                  lastSeen: newest,
+                  positionAgeMinutes: positionAt
+                    ? Math.max(0, Math.round((Date.now() - new Date(positionAt).getTime()) / 60000))
+                    : null,
+                  status,
+                  isOnline: status === 'active',
                 },
               };
             });

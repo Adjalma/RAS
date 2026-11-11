@@ -170,6 +170,13 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                               ? 'bg-amber-400'
                               : 'bg-slate-600'
                           }`}
+                          title={
+                            node.status === 'active'
+                              ? 'Enlace ativo (pacote recebido nos ultimos 5 min)'
+                              : node.status === 'stale'
+                              ? 'Enlace atrasado (5 a 15 min sem pacote)'
+                              : 'Enlace offline (mais de 15 min sem pacote)'
+                          }
                         />
                         <span className="font-bold font-tactical text-sm text-slate-100 tracking-wide">
                           {node.name}
@@ -209,13 +216,30 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                       </div>
                     )}
 
-                    {/* Linha 3: Visto por último e Contagem de Trajetos */}
+                    {/* Linha 3: Enlace, idade do GPS e contagem de trajetos */}
                     <div className="flex items-center justify-between text-[10px] font-tactical text-slate-400 mt-1">
-                      <span className="text-slate-500">
-                        {formatAge(node.lastSeen)}
+                      <span
+                        className="text-slate-500"
+                        title="Ultimo pacote de qualquer tipo (posicao ou telemetria)"
+                      >
+                        enlace {formatAge(node.lastSeen)}
                       </span>
+                      {hasGps && node.positionAgeMinutes != null && (
+                        <span
+                          className={
+                            node.positionAgeMinutes <= 5
+                              ? 'text-emerald-400/90'
+                              : node.positionAgeMinutes <= 30
+                              ? 'text-amber-400/90'
+                              : 'text-orange-400/90'
+                          }
+                          title="Idade da ultima coordenada GPS"
+                        >
+                          GPS {formatAge(lastPos?.received_at)}
+                        </span>
+                      )}
                       <span className="text-cyan-400/80">
-                        {positions.length} posições gravadas
+                        {positions.length} posições
                       </span>
                     </div>
                   </div>
