@@ -87,8 +87,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
-    // Ponto central padrão: Macaé / Rio de Janeiro
-    const initialCenter: [number, number] = [-22.3768, -41.7869]; // Macaé Centro
+    // Ponto central neutro (regiao RJ)
+    const initialCenter: [number, number] = [-22.9068, -43.1729];
 
     const map = L.map(mapContainerRef.current, {
       center: initialCenter,
@@ -351,11 +351,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
   };
 
-  // Botão rápido para ir para Macaé
-  const handleGoToMacae = () => {
-    mapInstanceRef.current?.flyTo([-22.3768, -41.7869], 13, { duration: 0.8 });
-  };
-
   return (
     <div className="relative w-full h-full flex-1 overflow-hidden bg-[#070b12]">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
@@ -428,15 +423,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
           title="Centralizar Todos os Rastreadores"
         >
           <Crosshair className="w-4 h-4" />
-        </button>
-
-        {/* Foco Rápido em Macaé */}
-        <button
-          onClick={handleGoToMacae}
-          className="w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700 text-cyan-400 flex items-center justify-center hover:bg-cyan-950/80 transition-all font-tactical text-[10px] font-bold"
-          title="Ir para Setor Macaé"
-        >
-          MAC
         </button>
 
         <button

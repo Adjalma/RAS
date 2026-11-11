@@ -46,7 +46,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
   const [name2, setName2] = useState('Serpente 2 — Pelotão Bravo (Macaé)');
 
   const [leader1, setLeader1] = useState<number | null>(nodes[0]?.id || null);
-  const [leader2, setLeader2] = useState<number | null>(2572); // Nó 0a0c Macaé
+  const [leader2, setLeader2] = useState<number | null>(nodes[0]?.id || null);
 
   const [gapLimit, setGapLimit] = useState(250);
 
@@ -59,21 +59,14 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
 
     if (!leaderId) return;
 
-    // Para Serpente 2 (Macaé), prioriza os rádios 0a0c, dc08, CCCC, DDDD
-    let assignedNodes = nodes;
-    if (id === 'serpente_2') {
-      const macaeGroup = nodes.filter((n) => n.id === 2572 || n.id === 56328 || n.name.includes('0a0c') || n.name.includes('dc08') || n.name === 'CCCC' || n.name === 'DDDD');
-      if (macaeGroup.length > 0) assignedNodes = macaeGroup;
-    }
-
-    const members: SerpenteMember[] = assignedNodes.map((node, idx) => {
+    const members: SerpenteMember[] = nodes.map((node, idx) => {
       const isLeader = node.id === leaderId;
       const pos = node.latest_positions?.[node.latest_positions.length - 1];
       return {
         nodeId: node.id,
         name: node.name,
         order: isLeader ? 0 : idx + 1,
-        role: isLeader ? 'leader' : idx === assignedNodes.length - 1 ? 'sweep' : 'operator',
+        role: isLeader ? 'leader' : idx === nodes.length - 1 ? 'sweep' : 'operator',
         lat: pos?.lat ?? null,
         lon: pos?.lon ?? null,
         battery: node.current_telemetry?.bat ?? null,

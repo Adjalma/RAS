@@ -2,10 +2,10 @@ import { LoraNode, SerpenteFormation, TacticalConfig } from '../types/tactical';
 import { DEFAULT_CONFIG } from './api';
 
 const STORAGE_KEYS = {
-  CONFIG: 'ras.tactical.config.v1',
-  CACHED_NODES: 'ras.tactical.nodes.v1',
-  SERPENTE: 'ras.tactical.serpente.v1',
-  BOOKMARKED_NODES: 'ras.tactical.bookmarks.v1',
+  CONFIG: 'ras.tactical.config.v2',
+  CACHED_NODES: 'ras.tactical.nodes.v2',
+  SERPENTE: 'ras.tactical.serpente.v2',
+  BOOKMARKED_NODES: 'ras.tactical.bookmarks.v2',
 } as const;
 
 export const DEFAULT_TACTICAL_CONFIG: TacticalConfig = {
