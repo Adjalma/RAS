@@ -64,6 +64,17 @@ export function useTacticalData() {
       const next = { ...prev };
       const now = Date.now();
 
+      // Remove nos de ensaio (simulador) que nao estao mais ativos: eles
+      // nao vem do backend e ficariam na lista como se fossem radios reais.
+      const serverIds = new Set(incomingNodes.map((n) => n.id));
+      Object.keys(next).forEach((key) => {
+        const id = Number(key);
+        const node = next[id];
+        if (node?.isSimulation && !serverIds.has(id)) {
+          delete next[id];
+        }
+      });
+
       incomingNodes.forEach((node) => {
         const existing = next[node.id];
         const enrichedPos = node.latest_positions ? enrichPositions(node.latest_positions) : existing?.latest_positions ?? null;

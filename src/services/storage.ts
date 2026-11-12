@@ -2,10 +2,10 @@ import { LoraNode, SerpenteFormation, TacticalConfig } from '../types/tactical';
 import { DEFAULT_CONFIG } from './api';
 
 const STORAGE_KEYS = {
-  CONFIG: 'ras.tactical.config.v2',
-  CACHED_NODES: 'ras.tactical.nodes.v2',
-  SERPENTE: 'ras.tactical.serpente.v2',
-  BOOKMARKED_NODES: 'ras.tactical.bookmarks.v2',
+  CONFIG: 'ras.tactical.config.v3',
+  CACHED_NODES: 'ras.tactical.nodes.v3',
+  SERPENTE: 'ras.tactical.serpente.v3',
+  BOOKMARKED_NODES: 'ras.tactical.bookmarks.v3',
 } as const;
 
 export const DEFAULT_TACTICAL_CONFIG: TacticalConfig = {
@@ -62,6 +62,9 @@ export class TacticalStorage {
     try {
       const map: Record<number, LoraNode> = {};
       nodes.forEach((n) => {
+        // Nos de ensaio ficam so em memoria: nao sao persistidos para nao
+        // reaparecerem como radios reais depois de um F5.
+        if (n.isSimulation) return;
         map[n.id] = n;
       });
       localStorage.setItem(STORAGE_KEYS.CACHED_NODES, JSON.stringify(map));
