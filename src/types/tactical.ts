@@ -90,7 +90,7 @@ export type MapTileLayer = 'dark' | 'satellite' | 'topo' | 'osm';
 export interface TacticalConfig {
   apiBaseUrl: string;
   wsUrl: string;
-  authHeader: string; // Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE=
+  authHeader: string; // Configurado localmente; nunca versionar o segredo
   mqttHost: string;
   mqttPort: number;
   autoCenterFollow: boolean;

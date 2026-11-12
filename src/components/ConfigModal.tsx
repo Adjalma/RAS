@@ -113,7 +113,7 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
           <div className="flex flex-col gap-1.5">
             <label className="text-slate-300 font-semibold flex items-center gap-2">
               <Key className="w-3.5 h-3.5 text-amber-400" />
-              <span>Authorization Header (Basic b64):</span>
+              <span>Authorization Header (configurado localmente):</span>
             </label>
             <input
               type="text"

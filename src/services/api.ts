@@ -7,7 +7,9 @@ const defaultBase = isBrowser ? '' : 'https://logistica.legendariosrio.com.br';
 export const DEFAULT_CONFIG = {
   apiBaseUrl: defaultBase,
   wsUrl: isBrowser ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws` : 'wss://logistica.legendariosrio.com.br/ws',
-  authHeader: 'Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE=',
+  // Defina VITE_MESH_AUTH_HEADER em .env.local para desenvolvimento.
+  // Nunca coloque o valor real no código ou em arquivos versionados.
+  authHeader: (import.meta.env.VITE_MESH_AUTH_HEADER as string | undefined) ?? '',
   mqttHost: 'mqtt.legendariosrio.com.br',
   mqttPort: 1883,
 };

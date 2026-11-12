@@ -6,14 +6,10 @@
   "rewrites": [
     {
       "source": "/v1/:path*",
-      "destination": "https://logistica.legendariosrio.com.br/v1/:path*"
+      "destination": "/api/v1?path=:path*"
     },
     {
-      "source": "/ws",
-      "destination": "https://logistica.legendariosrio.com.br/ws"
-    },
-    {
-      "source": "/((?!assets/|logo.png|favicon.svg).*)",
+      "source": "/((?!assets/|logo.png|favicon.svg|api/).*)",
       "destination": "/index.html"
     }
   ]

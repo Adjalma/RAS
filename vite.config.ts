@@ -22,18 +22,18 @@ export default defineConfig({
         target: 'https://logistica.legendariosrio.com.br',
         changeOrigin: true,
         secure: false,
-        headers: {
-          'Authorization': 'Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE=',
-        },
+        headers: process.env.VITE_MESH_AUTH_HEADER
+          ? { Authorization: process.env.VITE_MESH_AUTH_HEADER }
+          : {},
       },
       '/ws': {
         target: 'wss://logistica.legendariosrio.com.br',
         ws: true,
         changeOrigin: true,
         secure: false,
-        headers: {
-          'Authorization': 'Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE=',
-        },
+        headers: process.env.VITE_MESH_AUTH_HEADER
+          ? { Authorization: process.env.VITE_MESH_AUTH_HEADER }
+          : {},
       },
       // Relay de sincronizacao entre estacoes (WebSocket <-> MQTT)
       '/sync': {
