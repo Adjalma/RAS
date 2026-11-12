@@ -59,8 +59,9 @@ function createTileLayer(layer: MapTileLayer): L.TileLayer {
     maxZoom: 19,
     maxNativeZoom: provider.maxZoom,
     minZoom: 2,
-    keepBuffer: 4,          // mantem tiles em memoria durante o zoom
-    updateWhenIdle: true,
+    keepBuffer: 12,
+    updateInterval: 100,
+    updateWhenIdle: false,
     crossOrigin: true,
     className: provider.className,
   });
@@ -117,7 +118,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   const meshSignatureRef = useRef<string>('');
   const formationSignatureRef = useRef<string>('');
 
-  const [activeLayer, setActiveLayer] = useState<MapTileLayer>('topo');
+  // OSM é a camada operacional mais fluida. OpenTopoMap continua disponível
+  // no seletor, mas seu servidor é muito mais lento e só tem tiles nativos até z17.
+  const [activeLayer, setActiveLayer] = useState<MapTileLayer>('osm');
   const [tilesLoading, setTilesLoading] = useState<boolean>(true);
   const [mouseCoords, setMouseCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(13);
@@ -159,13 +162,12 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       zoom: 12,
       zoomControl: false,
       attributionControl: false,
-      preferCanvas: true,        // renderizador Canvas 2D/GPU
-      fadeAnimation: false,      // sem fade: menos repaint
-      zoomAnimation: false,      // zoom instantaneo, sem animacao que trava
-      markerZoomAnimation: false, // marcadores nao animam no zoom
-      zoomSnap: 0.5,             // zoom granular para operacao fina
-      wheelPxPerZoomLevel: 90,   // scroll mais suave
-      trackResize: false,        // evita resize storms
+      preferCanvas: true,
+      fadeAnimation: true,
+      zoomAnimation: true,
+      markerZoomAnimation: true,
+      zoomSnap: 1,
+      wheelDebounceTime: 40,
     });
 
     trailsLayerRef.current = L.layerGroup().addTo(map);
@@ -520,21 +522,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       {/* HUD Controles */}
       <div className="absolute top-3 right-3 z-[400] flex flex-col gap-2">
-        {/* Alternancia rapida Topo <-> Satelite */}
+        {/* Alternancia rapida entre OpenTopoMap e Camada Rapida (OSM / Sat) */}
         <button
-          onClick={() => setActiveLayer((prev) => (prev === 'topo' ? 'satellite' : 'topo'))}
+          onClick={() => setActiveLayer((prev) => (prev === 'topo' ? 'osm' : 'topo'))}
           className="px-2.5 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center gap-1.5 hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg font-tactical text-[10px] font-bold"
-          title={activeLayer === 'topo' ? 'Trocar para Satélite HD' : 'Trocar para OpenTopoMap'}
+          title={activeLayer === 'topo' ? 'Trocar para Mapa Rápido (OSM)' : 'Trocar para OpenTopoMap (Relevo)'}
         >
           {activeLayer === 'topo' ? (
             <>
-              <Satellite className="w-4 h-4" />
-              <span>SAT</span>
+              <MapIcon className="w-4 h-4" />
+              <span>OSM (RÁPIDO)</span>
             </>
           ) : (
             <>
-              <MapIcon className="w-4 h-4" />
-              <span>TOPO</span>
+              <MapIcon className="w-4 h-4 text-emerald-400" />
+              <span>OPENTOPO</span>
             </>
           )}
         </button>
