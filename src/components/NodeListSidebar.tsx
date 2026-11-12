@@ -33,9 +33,15 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
 }) => {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState<'all' | 'gps' | 'low_bat'>('all');
+  const [hideSimulation, setHideSimulation] = useState<boolean>(true);
+
+  const realNodes = useMemo(() => nodes.filter((n) => !n.isSimulation), [nodes]);
+  const simulationCount = nodes.length - realNodes.length;
 
   const filteredNodes = useMemo(() => {
     return nodes.filter((n) => {
+      if (hideSimulation && n.isSimulation) return false;
+
       const matchText =
         n.name.toLowerCase().includes(search.toLowerCase()) ||
         n.id.toString().includes(search);
@@ -52,7 +58,7 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
       }
       return true;
     });
-  }, [nodes, search, filter]);
+  }, [nodes, search, filter, hideSimulation]);
 
   const formatAge = (dateStr?: string) => {
     if (!dateStr) return 'Sem contato';
@@ -111,7 +117,7 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                     : 'text-slate-400 hover:bg-slate-800'
                 }`}
               >
-                Todos ({nodes.length})
+                Todos ({realNodes.length})
               </button>
               <button
                 onClick={() => setFilter('gps')}
@@ -133,6 +139,21 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
               >
                 Bat. Baixa
               </button>
+
+              {/* Alterna exibicao dos nos de ensaio */}
+              {simulationCount > 0 && (
+                <button
+                  onClick={() => setHideSimulation((prev) => !prev)}
+                  className={`ml-auto px-2 py-1 rounded-md transition-colors ${
+                    hideSimulation
+                      ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 font-semibold'
+                      : 'text-purple-400 hover:bg-purple-950/40'
+                  }`}
+                  title="Mostrar ou ocultar os nos de ensaio (simulador)"
+                >
+                  SIM ({simulationCount})
+                </button>
+              )}
             </div>
           </div>
 
@@ -189,6 +210,14 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                         <span className="text-[10px] font-tactical text-slate-500">
                           #{node.id}
                         </span>
+                        {node.isSimulation && (
+                          <span
+                            className="text-[9px] uppercase px-1.5 py-0.2 rounded bg-purple-500/20 text-purple-300 border border-purple-500/40 font-bold"
+                            title="Nó de ensaio criado no simulador. Nao e um radio real."
+                          >
+                            SIMULAÇÃO
+                          </span>
+                        )}
                       </div>
 
                       <div className="flex items-center gap-1.5 font-tactical text-xs text-slate-300">

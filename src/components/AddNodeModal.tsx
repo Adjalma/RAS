@@ -35,8 +35,9 @@ export const AddNodeModal: React.FC<AddNodeModalProps> = ({
   const [foundNode, setFoundNode] = useState<LoraNode | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  // Campos para simulação de ensaio em bancada
-  const [simName, setSimName] = useState('EQUIPE-ALPHA');
+  // Campos para simulação de ensaio em bancada.
+  // O prefixo SIM- deixa claro na lista de nós que não é um rádio real.
+  const [simName, setSimName] = useState('SIM-EQUIPE-01');
   const [simId, setSimId] = useState(Math.floor(1000000000 + Math.random() * 9000000000));
   const [simLat, setSimLat] = useState(-23.00755);
   const [simLon, setSimLon] = useState(-43.42027);

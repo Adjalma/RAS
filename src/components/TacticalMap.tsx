@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import { LoraNode, MapTileLayer, PositionData, SerpenteFormation } from '../types/tactical';
 import { formatTacticalCoords, calculateDistanceMeters, hasGpsFix } from '../utils/geo';
-import { Layers, Crosshair, ZoomIn, ZoomOut, Radio, Users } from 'lucide-react';
+import { Layers, Crosshair, ZoomIn, ZoomOut, Radio, Satellite, Map as MapIcon, Loader2 } from 'lucide-react';
 
 interface TacticalMapProps {
   nodes: LoraNode[];
@@ -17,7 +17,9 @@ interface TacticalMapProps {
 // Provedores 100% livres de alta velocidade e sem necessidade de API key
 const TILE_PROVIDERS: Record<MapTileLayer, { url: string; subdomains?: string; attribution: string; maxZoom: number; className?: string }> = {
   topo: {
-    // OpenTopoMap: relevo topografico com curvas de nivel (padrão)
+    // OpenTopoMap: relevo topografico com curvas de nivel (padrao).
+    // Acima de z=17 o servidor devolve tiles vazios, por isso o maxZoom
+    // fica em 17 e o Leaflet estica o ultimo nivel disponivel.
     url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
     subdomains: 'abc',
     attribution: '© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)',
@@ -44,6 +46,43 @@ const TILE_PROVIDERS: Record<MapTileLayer, { url: string; subdomains?: string; a
   },
 };
 
+/**
+ * Cria a camada de tiles com maxNativeZoom (para esticar o ultimo nivel
+ * disponivel em vez de mostrar preto) e fallback automatico quando o
+ * servidor de tiles falha.
+ */
+function createTileLayer(layer: MapTileLayer): L.TileLayer {
+  const provider = TILE_PROVIDERS[layer];
+  const tileLayer = L.tileLayer(provider.url, {
+    attribution: provider.attribution,
+    subdomains: provider.subdomains || 'abc',
+    maxZoom: 19,
+    maxNativeZoom: provider.maxZoom,
+    minZoom: 2,
+    keepBuffer: 4,          // mantem tiles em memoria durante o zoom
+    updateWhenIdle: true,
+    crossOrigin: true,
+    className: provider.className,
+  });
+
+  // Se o servidor de tiles estiver indisponivel, cai para o OSM
+  // (rapido e sempre disponivel) em vez de deixar a tela preta.
+  let fellBack = false;
+  tileLayer.on('tileerror', () => {
+    if (fellBack || layer === 'osm') return;
+    fellBack = true;
+    console.warn(`[mapa] tiles de "${layer}" falharam. Alternando para OpenStreetMap.`);
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    if (currentTileLayerRef.current) map.removeLayer(currentTileLayerRef.current);
+    const fallback = createTileLayer('osm');
+    fallback.addTo(map);
+    currentTileLayerRef.current = fallback;
+  });
+
+  return tileLayer;
+}
+
 export const TacticalMap: React.FC<TacticalMapProps> = ({
   nodes,
   selectedNodeId,
@@ -65,8 +104,21 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
   // Cache de marcadores instanciados para reaproveitamento ultra-rápido (zero travamento de DOM)
   const markerCacheRef = useRef<Map<number, L.Marker>>(new Map());
+  // Assinatura do conteudo do icone: evita setIcon() (recriacao de DOM)
+  // quando nada visualmente mudou.
+  const markerSignatureRef = useRef<Map<number, string>>(new Map());
+  // Assinatura das trilhas: evita redesenhar polylines a cada polling.
+  const trailSignatureRef = useRef<Map<number, string>>(new Map());
+  // Polylines de trilha por no, para poder remover/reescrever so uma.
+  const trailLayerRef = useRef<Map<number, L.Polyline>>(new Map());
+  // Camada exclusiva das linhas de formacao (redesenhada so quando muda).
+  const formationLayerRef = useRef<L.LayerGroup | null>(null);
+  // Assinaturas de topologia (mesh links e formacoes).
+  const meshSignatureRef = useRef<string>('');
+  const formationSignatureRef = useRef<string>('');
 
   const [activeLayer, setActiveLayer] = useState<MapTileLayer>('topo');
+  const [tilesLoading, setTilesLoading] = useState<boolean>(true);
   const [mouseCoords, setMouseCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false);
@@ -78,6 +130,9 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   // é tratado como "sem GPS" e não é desenhado no mapa.
   const nodesWithValidPos = useMemo(() => {
     return nodes.filter((n) => {
+      // Nos de ensaio ficam fora do mapa: sao ficticios e poluiriam a
+      // operacao real. Aparecem apenas na lista, marcados como SIMULACAO.
+      if (n.isSimulation) return false;
       const pos = n.latest_positions;
       if (!pos || pos.length === 0) return false;
       const last = pos[pos.length - 1];
@@ -104,24 +159,38 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       zoom: 12,
       zoomControl: false,
       attributionControl: false,
-      preferCanvas: true, // Renderizador Canvas 2D/GPU
-      fadeAnimation: false,
-      zoomAnimation: true,
-      markerZoomAnimation: true,
+      preferCanvas: true,        // renderizador Canvas 2D/GPU
+      fadeAnimation: false,      // sem fade: menos repaint
+      zoomAnimation: false,      // zoom instantaneo, sem animacao que trava
+      markerZoomAnimation: false, // marcadores nao animam no zoom
+      zoomSnap: 0.5,             // zoom granular para operacao fina
+      wheelPxPerZoomLevel: 90,   // scroll mais suave
+      trackResize: false,        // evita resize storms
     });
 
     trailsLayerRef.current = L.layerGroup().addTo(map);
     meshLayerRef.current = L.layerGroup().addTo(map);
     accuracyLayerRef.current = L.layerGroup().addTo(map);
+    formationLayerRef.current = L.layerGroup().addTo(map);
     markersLayerRef.current = L.layerGroup().addTo(map);
 
     const provider = TILE_PROVIDERS[activeLayer];
-    const tileLayer = L.tileLayer(provider.url, {
-      attribution: provider.attribution,
-      maxZoom: provider.maxZoom,
-      className: provider.className,
-    }).addTo(map);
+    const tileLayer = createTileLayer(activeLayer).addTo(map);
     currentTileLayerRef.current = tileLayer;
+
+    // Precarrega os tiles do nivel inicial em paralelo: sem isso a
+    // primeira abertura espera cada tile em fila e parece travada.
+    const preload = new Image();
+    preload.decoding = 'async';
+    const px = Math.round((initialCenter[1] + 180) / 360 * 2 ** 12);
+    const py = Math.round(
+      (1 - Math.asinh(Math.tan((initialCenter[0] * Math.PI) / 180)) / Math.PI) / 2 * 2 ** 12
+    );
+    preload.src = provider.url
+      .replace('{s}', 'a')
+      .replace('{z}', '12')
+      .replace('{x}', String(px))
+      .replace('{y}', String(py));
 
     map.on('mousemove', (e) => {
       setMouseCoords({ lat: e.latlng.lat, lon: e.latlng.lng });
@@ -150,15 +219,18 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       map.removeLayer(currentTileLayerRef.current);
     }
 
-    const provider = TILE_PROVIDERS[activeLayer];
-    const newTileLayer = L.tileLayer(provider.url, {
-      attribution: provider.attribution,
-      maxZoom: provider.maxZoom,
-      className: provider.className,
-    }).addTo(map);
-
+    const newTileLayer = createTileLayer(activeLayer).addTo(map);
     newTileLayer.bringToBack();
     currentTileLayerRef.current = newTileLayer;
+
+    // Indicador de carregamento: some quando os tiles terminarem de chegar.
+    setTilesLoading(true);
+    let pending = 0;
+    newTileLayer.on('tileload', () => {
+      pending = Math.max(0, pending - 1);
+      if (pending === 0) setTilesLoading(false);
+    });
+    newTileLayer.on('load', () => setTilesLoading(false));
   }, [activeLayer]);
 
   // 3. Auto-center na carga inicial
@@ -182,9 +254,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     const map = mapInstanceRef.current;
     if (!map || !markersLayerRef.current || !trailsLayerRef.current || !meshLayerRef.current || !accuracyLayerRef.current) return;
 
-    // Atualiza trilhas e malha
-    trailsLayerRef.current.clearLayers();
-    meshLayerRef.current.clearLayers();
+    // As trilhas, mesh links e formacoes tem cache proprio (redesenham
+    // apenas quando mudam). Aqui so limpamos o que nao tem cache.
     accuracyLayerRef.current.clearLayers();
 
     const currentIds = new Set<number>();
@@ -208,14 +279,31 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         else if (batteryPercent <= 50) batColor = '#f59e0b';
       }
 
-      // Trilha vetorial em Canvas
+      // Trilha vetorial em Canvas. So redesenha quando a trilha mudou de
+      // fato: recriar a polyline a cada polling(forca recriacao de canvas).
       if (showTrails && positions.length > 1) {
-        const latLngs = positions.map((p) => [p.lat, p.lon] as [number, number]);
-        L.polyline(latLngs, {
-          color: nodeColor,
-          weight: isSelected ? 3.5 : 2,
-          opacity: isSelected ? 0.9 : 0.6,
-        }).addTo(trailsLayerRef.current!);
+        const trailSignature = `${positions.length}|${latestPos.received_at}|${isSelected}`;
+        if (trailSignatureRef.current.get(node.id) !== trailSignature) {
+          trailSignatureRef.current.set(node.id, trailSignature);
+          const previous = trailLayerRef.current.get(node.id);
+          if (previous) {
+            trailsLayerRef.current?.removeLayer(previous);
+          }
+          const latLngs = positions.map((p) => [p.lat, p.lon] as [number, number]);
+          const line = L.polyline(latLngs, {
+            color: nodeColor,
+            weight: isSelected ? 3.5 : 2,
+            opacity: isSelected ? 0.9 : 0.6,
+          }).addTo(trailsLayerRef.current!);
+          trailLayerRef.current.set(node.id, line);
+        }
+      } else {
+        const previous = trailLayerRef.current.get(node.id);
+        if (previous) {
+          trailsLayerRef.current?.removeLayer(previous);
+          trailLayerRef.current.delete(node.id);
+          trailSignatureRef.current.delete(node.id);
+        }
       }
 
       // Círculo de precisão de GPS
@@ -263,16 +351,26 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         iconAnchor: [22, 22],
       });
 
-      // Se o marcador já existe, apenas move a posição (super fluido)
+      // Se o marcador ja existe, apenas move a posicao. O setIcon() so
+      // acontece quando o conteudo do icone realmente mudou: recriar o
+      // DOM a cada polling (4s) era o principal gargalo de fluidez.
       const existingMarker = markerCacheRef.current.get(node.id);
       if (existingMarker) {
-        existingMarker.setLatLng([latestPos.lat, latestPos.lon]);
-        existingMarker.setIcon(customIcon);
+        const moved = existingMarker.getLatLng();
+        if (moved.lat !== latestPos.lat || moved.lng !== latestPos.lon) {
+          existingMarker.setLatLng([latestPos.lat, latestPos.lon]);
+        }
+        const signature = `${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${posAgeMin}`;
+        if (markerSignatureRef.current.get(node.id) !== signature) {
+          existingMarker.setIcon(customIcon);
+          markerSignatureRef.current.set(node.id, signature);
+        }
       } else {
         const newMarker = L.marker([latestPos.lat, latestPos.lon], { icon: customIcon });
         newMarker.on('click', () => onSelectNode(node.id));
         newMarker.addTo(markersLayerRef.current!);
         markerCacheRef.current.set(node.id, newMarker);
+        markerSignatureRef.current.set(node.id, `${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${posAgeMin}`);
       }
     });
 
@@ -284,59 +382,83 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       }
     });
 
-    // Mesh Links LoRa
-    if (showMeshLinks && positionsMap.length > 1) {
-      for (let i = 0; i < positionsMap.length; i++) {
-        for (let j = i + 1; j < positionsMap.length; j++) {
-          const nodeA = positionsMap[i];
-          const nodeB = positionsMap[j];
-          const distKm = calculateDistanceMeters(nodeA.pos.lat, nodeA.pos.lon, nodeB.pos.lat, nodeB.pos.lon) / 1000;
-          if (distKm <= 25) {
-            L.polyline(
-              [
-                [nodeA.pos.lat, nodeA.pos.lon],
-                [nodeB.pos.lat, nodeB.pos.lon],
-              ],
-              {
-                color: '#f97316',
-                weight: 1,
-                opacity: 0.35,
-                dashArray: '4, 4',
-              }
-            ).addTo(meshLayerRef.current!);
+    // Mesh Links LoRa e linhas das Serpentes.
+    // Redesenhados apenas quando a topologia muda: recriar essas polylines
+    // a cada polling (4s) forca o canvas a se redesenhar e trava o zoom.
+    const topologySignature = positionsMap
+      .map((p) => `${p.node.id}:${p.pos.lat.toFixed(5)},${p.pos.lon.toFixed(5)}`)
+      .join('|');
+    const formationSignature = formations
+      .map((f) => `${f.id}:${f.isOpen}:${f.members.length}`)
+      .join('|');
+
+    if (meshSignatureRef.current !== `${topologySignature}#${showMeshLinks}`) {
+      meshSignatureRef.current = `${topologySignature}#${showMeshLinks}`;
+      meshLayerRef.current.clearLayers();
+
+      if (showMeshLinks && positionsMap.length > 1) {
+        for (let i = 0; i < positionsMap.length; i++) {
+          for (let j = i + 1; j < positionsMap.length; j++) {
+            const nodeA = positionsMap[i];
+            const nodeB = positionsMap[j];
+            const distKm = calculateDistanceMeters(nodeA.pos.lat, nodeA.pos.lon, nodeB.pos.lat, nodeB.pos.lon) / 1000;
+            if (distKm <= 25) {
+              L.polyline(
+                [
+                  [nodeA.pos.lat, nodeA.pos.lon],
+                  [nodeB.pos.lat, nodeB.pos.lon],
+                ],
+                {
+                  color: '#f97316',
+                  weight: 1,
+                  opacity: 0.35,
+                  dashArray: '4, 4',
+                }
+              ).addTo(meshLayerRef.current!);
+            }
           }
         }
       }
     }
-    // Renderiza as Formações das Múltiplas Serpentes no Mapa
-    formations.forEach((form) => {
-      if (!form.isOpen || form.members.length < 2) return;
-      const formCoords: [number, number][] = [];
 
-      form.members.forEach((m) => {
-        const liveNode = nodes.find((n) => n.id === m.nodeId);
-        const pos = liveNode?.latest_positions?.[liveNode.latest_positions.length - 1];
-        if (pos && typeof pos.lat === 'number' && typeof pos.lon === 'number') {
-          formCoords.push([pos.lat, pos.lon]);
+    if (formationSignatureRef.current !== `${formationSignature}#${topologySignature}`) {
+      formationSignatureRef.current = `${formationSignature}#${topologySignature}`;
+      formationLayerRef.current.clearLayers();
+
+      formations.forEach((form) => {
+        if (!form.isOpen || form.members.length < 2) return;
+        const formCoords: [number, number][] = [];
+
+        form.members.forEach((m) => {
+          const liveNode = nodes.find((n) => n.id === m.nodeId);
+          const pos = liveNode?.latest_positions?.[liveNode.latest_positions.length - 1];
+          if (pos && typeof pos.lat === 'number' && typeof pos.lon === 'number') {
+            formCoords.push([pos.lat, pos.lon]);
+          }
+        });
+
+        if (formCoords.length > 1) {
+          L.polyline(formCoords, {
+            color: form.color || '#06b6d4',
+            weight: 4,
+            opacity: 0.85,
+            dashArray: '6, 6',
+          }).addTo(formationLayerRef.current!);
         }
       });
-
-      if (formCoords.length > 1) {
-        // Linha tática da Serpente conectando a tropa
-        L.polyline(formCoords, {
-          color: form.color || '#06b6d4',
-          weight: 4,
-          opacity: 0.85,
-          dashArray: '6, 6',
-        }).addTo(trailsLayerRef.current!);
-      }
-    });
+    }
   }, [nodesWithValidPos, selectedNodeId, showTrails, showMeshLinks, showAccuracyCircles, formations, onSelectNode]);
 
-  // Centralizar no nó selecionado
+  // Centralizar no nó selecionado.
+  // So reage a mudanca de selecao: reagir a `nodes` fazia o mapa dar um
+  // salto a cada polling, brigando com o zoom que o usuario ajustou.
+  const lastCenteredRef = useRef<number | null>(null);
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map || selectedNodeId == null) return;
+    if (lastCenteredRef.current === selectedNodeId) return;
+    lastCenteredRef.current = selectedNodeId;
+
     const targetNode = nodes.find((n) => n.id === selectedNodeId);
     const positions = targetNode?.latest_positions;
     if (positions && positions.length > 0) {
@@ -346,6 +468,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       });
     }
   }, [selectedNodeId, nodes]);
+
+  // Ao limpar a selecao, permite re-centralizar no mesmo no depois.
+  useEffect(() => {
+    if (selectedNodeId == null) lastCenteredRef.current = null;
+  }, [selectedNodeId]);
 
   const handleFitAll = () => {
     const map = mapInstanceRef.current;
@@ -363,6 +490,16 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   return (
     <div className="relative w-full h-full flex-1 overflow-hidden bg-[#070b12]">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+      {/* Indicador de carregamento de tiles */}
+      {tilesLoading && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-[500] flex flex-col items-center gap-2 pointer-events-none">
+          <Loader2 className="w-7 h-7 text-orange-400 animate-spin" />
+          <span className="text-[10px] font-tactical text-orange-300 bg-slate-900/90 border border-orange-500/30 px-2.5 py-1 rounded">
+            CARREGANDO MAPA
+          </span>
+        </div>
+      )}
 
       {/* HUD Superior Esquerdo */}
       <div className="absolute top-3 left-3 z-[400] flex flex-col gap-1 pointer-events-none">
@@ -383,6 +520,25 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       {/* HUD Controles */}
       <div className="absolute top-3 right-3 z-[400] flex flex-col gap-2">
+        {/* Alternancia rapida Topo <-> Satelite */}
+        <button
+          onClick={() => setActiveLayer((prev) => (prev === 'topo' ? 'satellite' : 'topo'))}
+          className="px-2.5 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center gap-1.5 hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg font-tactical text-[10px] font-bold"
+          title={activeLayer === 'topo' ? 'Trocar para Satélite HD' : 'Trocar para OpenTopoMap'}
+        >
+          {activeLayer === 'topo' ? (
+            <>
+              <Satellite className="w-4 h-4" />
+              <span>SAT</span>
+            </>
+          ) : (
+            <>
+              <MapIcon className="w-4 h-4" />
+              <span>TOPO</span>
+            </>
+          )}
+        </button>
+
         <div className="relative">
           <button
             onClick={() => setIsLayerMenuOpen((prev) => !prev)}

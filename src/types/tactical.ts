@@ -32,6 +32,8 @@ export interface LoraNode {
   status?: 'active' | 'stale' | 'offline';
   /** Idade da última posição GPS em minutos. null se nunca houve fix. */
   positionAgeMinutes?: number | null;
+  /** true para nós criados pelo simulador de ensaio (não são rádios reais). */
+  isSimulation?: boolean;
   color?: string; // Cor tática atribuída
   callsign?: string;
 }

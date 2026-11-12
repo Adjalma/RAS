@@ -277,29 +277,54 @@ export function useTacticalData() {
   }, [playTacticalBeep]);
 
   /**
-   * Dispara pacote de beacon manual/simulado para testes de bancada
+   * Cria um nó de ENSAIO (simulado) para treinamento de equipe.
+   *
+   * Fica separado dos rádios reais: o nome sempre começa com "SIM-" e o
+   * nó é marcado como simulação, para nunca ser confundido com um
+   * dispositivo real em operação.
    */
   const simulateNodeTelemetry = useCallback((nodeId: number, name: string, lat: number, lon: number, bat: number) => {
-    handleWsMessage({
-      type: 'position',
-      id: nodeId,
-      node_id: nodeId,
-      name,
-      lat,
-      lon,
-      alt: 45,
-      acc: 3,
-      sat: 8,
-      bat,
-      timestamp: new Date().toISOString(),
+    const simName = name.startsWith('SIM-') ? name : `SIM-${name}`;
+
+    setNodes((prev) => {
+      const existing = prev[nodeId];
+      const positions = existing?.latest_positions ?? [];
+      const newPos: PositionData = {
+        id: nodeId,
+        lat,
+        lon,
+        alt: 45,
+        acc: 3,
+        sat: 8,
+        received_at: new Date().toISOString(),
+      };
+      const enriched = enrichPositions([...positions, newPos]);
+
+      return {
+        ...prev,
+        [nodeId]: {
+          id: nodeId,
+          name: simName,
+          current_telemetry: { id: nodeId, bat, received_at: new Date().toISOString() },
+          latest_positions: enriched,
+          lastSeen: newPos.received_at,
+          lastPositionAt: newPos.received_at,
+          positionAgeMinutes: 0,
+          status: 'active',
+          isOnline: true,
+          color: existing?.color || getNodeColor(nodeId),
+          isSimulation: true,
+        },
+      };
     });
+
     addAlert({
       nodeId,
-      nodeName: name,
+      nodeName: simName,
       type: 'new_node',
-      message: `Novo rastreador conectado à malha LoRa (Beacon recebido).`,
+      message: `Nó de ensaio criado: ${simName} (não é um rádio real).`,
     });
-  }, [handleWsMessage, addAlert]);
+  }, [addAlert]);
 
   /**
    * Carrega histórico completo de um nó selecionado
