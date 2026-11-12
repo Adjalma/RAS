@@ -35,6 +35,12 @@ export default defineConfig({
           'Authorization': 'Basic b2NhcnJvZG9tZXVwYWl0ZW11bXVuaWNvcm5pbzE=',
         },
       },
+      // Relay de sincronizacao entre estacoes (WebSocket <-> MQTT)
+      '/sync': {
+        target: 'ws://localhost:8901',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });

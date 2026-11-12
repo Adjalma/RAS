@@ -3,6 +3,7 @@ import { LoraNode, PositionData, WSBaseMessage, TacticalConfig, SerpenteFormatio
 import { api } from '../services/api';
 import { wsService, WSConnectionStatus } from '../services/websocket';
 import { TacticalStorage, DEFAULT_TACTICAL_CONFIG } from '../services/storage';
+import { rasSync } from '../services/sync';
 import { enrichPositions, getNodeColor } from '../utils/geo';
 
 export interface TacticalAlert {
@@ -209,7 +210,7 @@ export function useTacticalData() {
     setNodes((prev) => {
       const existing = prev[nodeId] || {
         id: nodeId,
-        name: msg.name || `NÓ-${nodeId}`,
+        name: `NÓ-${nodeId}`,
         current_telemetry: null,
         latest_positions: null,
         color: getNodeColor(nodeId),
@@ -217,9 +218,17 @@ export function useTacticalData() {
 
       let updated = { ...existing };
 
-      // Evento: novo nome/registro
-      if (msg.name || msg.type === 'name' || msg.event === 'name') {
-        updated.name = msg.name || msg.payload?.name || updated.name;
+      // Evento de nome do backend (store.User -> campo JSON "short_name").
+      // Nunca aceita nome vindo de outra fonte para nao sobrescrever o
+      // callsign real do radio.
+      const incomingName =
+        typeof msg.short_name === 'string'
+          ? msg.short_name
+          : typeof msg.payload?.short_name === 'string'
+          ? msg.payload.short_name
+          : null;
+      if (incomingName && incomingName.trim()) {
+        updated.name = incomingName.trim();
       }
 
       // Evento: nova posição
@@ -317,13 +326,16 @@ export function useTacticalData() {
   }, []);
 
   /**
-   * Gerenciamento de Múltiplas Serpentes
+   * Gerenciamento de Múltiplas Serpentes.
+   * Cada alteração é publicada no barramento de sincronização para que
+   * apareça nas demais estações (PCs) em uso.
    */
   const saveFormation = useCallback((formation: SerpenteFormation) => {
     setFormations((prev) => {
       const filtered = prev.filter((f) => f.id !== formation.id);
       const next = [...filtered, formation];
       TacticalStorage.saveFormations(next);
+      rasSync.publish('formations', next);
       return next;
     });
     addAlert({
@@ -338,6 +350,7 @@ export function useTacticalData() {
     setFormations((prev) => {
       const next = prev.filter((f) => f.id !== formationId);
       TacticalStorage.saveFormations(next);
+      rasSync.publish('formations', next);
       return next;
     });
   }, []);
@@ -375,6 +388,35 @@ export function useTacticalData() {
       wsService.disconnect();
     };
   }, [fetchNodes, handleWsMessage, config.apiBaseUrl, config.authHeader, config.wsUrl]);
+
+  // Sincronizacao entre estacoes: formacoes e selecao de no
+  // publicada no barramento e replicada nas outras maquinas.
+  useEffect(() => {
+    rasSync.connect();
+
+    const unsubscribe = rasSync.subscribe((envelope) => {
+      if (envelope.kind === 'formations') {
+        const incoming = envelope.data as SerpenteFormation[];
+        if (!Array.isArray(incoming)) return;
+        setFormations(incoming);
+        TacticalStorage.saveFormations(incoming);
+        console.debug('[Sync] formacoes atualizadas de outra estacao');
+      } else if (envelope.kind === 'selection') {
+        const id = envelope.data as number | null;
+        setSelectedNodeId(typeof id === 'number' ? id : null);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+      rasSync.disconnect();
+    };
+  }, []);
+
+  // Publica a selecao de no para as demais estacoes
+  useEffect(() => {
+    rasSync.publish('selection', selectedNodeId);
+  }, [selectedNodeId]);
 
   return {
     nodes: Object.values(nodes),

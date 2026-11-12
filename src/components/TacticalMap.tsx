@@ -15,26 +15,31 @@ interface TacticalMapProps {
 }
 
 // Provedores 100% livres de alta velocidade e sem necessidade de API key
-const TILE_PROVIDERS: Record<MapTileLayer, { url: string; attribution: string; maxZoom: number; className?: string }> = {
+const TILE_PROVIDERS: Record<MapTileLayer, { url: string; subdomains?: string; attribution: string; maxZoom: number; className?: string }> = {
+  topo: {
+    // OpenTopoMap: relevo topografico com curvas de nivel (padrão)
+    url: 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',
+    subdomains: 'abc',
+    attribution: '© OpenStreetMap contributors, SRTM | © OpenTopoMap (CC-BY-SA)',
+    maxZoom: 17,
+  },
   satellite: {
+    // Esri World Imagery (livre e público, satélite real de alta resolução)
     url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
     attribution: 'Esri, Maxar, Earthstar',
     maxZoom: 19,
   },
   dark: {
+    // OpenStreetMap oficial com filtro dark militar aplicado via CSS (zero risco de API Key)
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
     maxZoom: 19,
     className: 'tactical-dark-layer',
   },
   osm: {
+    // OpenStreetMap padrão
     url: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
     attribution: '© OpenStreetMap contributors',
-    maxZoom: 19,
-  },
-  topo: {
-    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-    attribution: 'Esri, HERE, Garmin',
     maxZoom: 19,
   },
 };
@@ -61,7 +66,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   // Cache de marcadores instanciados para reaproveitamento ultra-rápido (zero travamento de DOM)
   const markerCacheRef = useRef<Map<number, L.Marker>>(new Map());
 
-  const [activeLayer, setActiveLayer] = useState<MapTileLayer>('satellite');
+  const [activeLayer, setActiveLayer] = useState<MapTileLayer>('topo');
   const [mouseCoords, setMouseCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false);
@@ -393,6 +398,12 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 Camadas Táticas
               </div>
               <button
+                onClick={() => { setActiveLayer('topo'); setIsLayerMenuOpen(false); }}
+                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'topo' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
+              >
+                🗺️ OpenTopoMap (Relevo)
+              </button>
+              <button
                 onClick={() => { setActiveLayer('satellite'); setIsLayerMenuOpen(false); }}
                 className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'satellite' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
@@ -403,12 +414,6 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
                 className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'dark' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 🕶️ Cyber Dark Tático
-              </button>
-              <button
-                onClick={() => { setActiveLayer('topo'); setIsLayerMenuOpen(false); }}
-                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'topo' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
-              >
-                🗺️ Topografia & Vias
               </button>
               <button
                 onClick={() => { setActiveLayer('osm'); setIsLayerMenuOpen(false); }}

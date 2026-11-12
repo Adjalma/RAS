@@ -38,12 +38,12 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
   // 1 = Serpente 1, 2 = Serpente 2
   const [activeTab, setActiveTab] = useState<'serpente_1' | 'serpente_2'>('serpente_1');
 
-  // Dados locais de criação para a Serpente 1
+  // Formacoes nomeadas: Santarem e Represa.
   const form1 = formations.find((f) => f.id === 'serpente_1') || null;
   const form2 = formations.find((f) => f.id === 'serpente_2') || null;
 
-  const [name1, setName1] = useState('Serpente 1 — Pelotão Alfa');
-  const [name2, setName2] = useState('Serpente 2 — Pelotão Bravo (Macaé)');
+  const [name1, setName1] = useState('Santarem');
+  const [name2, setName2] = useState('Represa');
 
   const [leader1, setLeader1] = useState<number | null>(nodes[0]?.id || null);
   const [leader2, setLeader2] = useState<number | null>(nodes[0]?.id || null);
@@ -154,7 +154,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-            <span>SERPENTE 1 (ALFA)</span>
+            <span>SANTAREM</span>
             {form1?.isOpen && (
               <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                 ATIVA
@@ -171,7 +171,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full bg-orange-500" />
-            <span>SERPENTE 2 (BRAVO / MACAÉ)</span>
+            <span>REPRESA</span>
             {form2?.isOpen && (
               <span className="px-1.5 py-0.2 rounded text-[9px] bg-emerald-500/20 text-emerald-400 font-bold border border-emerald-500/30">
                 ATIVA
@@ -250,7 +250,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
                 }`}
               >
                 <Play className="w-4 h-4 fill-slate-950" />
-                <span>INICIAR {activeTab === 'serpente_1' ? 'SERPENTE 1' : 'SERPENTE 2'}</span>
+                <span>INICIAR {activeTab === 'serpente_1' ? 'SANTAREM' : 'REPRISA'}</span>
               </button>
             </div>
           ) : (

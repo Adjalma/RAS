@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:all": "node server/sync-relay.mjs & vite",
+    "sync": "node server/sync-relay.mjs",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
     "lint": "oxlint",
@@ -15,10 +17,12 @@
     "date-fns": "^4.4.0",
     "leaflet": "^1.9.4",
     "lucide-react": "^1.71.0",
+    "mqtt": "5.16.1",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "recharts": "^3.10.1",
-    "tailwind-merge": "^3.7.0"
+    "tailwind-merge": "^3.7.0",
+    "ws": "^8.22.2"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.3.5",
