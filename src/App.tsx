@@ -18,6 +18,7 @@ export const App: React.FC = () => {
     selectedNode,
     setSelectedNodeId,
     loading,
+    error,
     connectionStatus,
     lastSyncTime,
     alerts,

@@ -310,6 +310,8 @@ export function useTacticalData() {
       console.error('[Tactical] Erro ao sincronizar nós:', err);
       setError(err?.message || 'Falha de conexão com a API de rastreamento');
       return false;
+    } finally {
+      setLoading(false);
     }
   }, [config.trailDurationHours, processNodesList]);
 

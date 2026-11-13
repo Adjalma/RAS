@@ -18,14 +18,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Variavel de ambiente segura no servidor Vercel (nunca exposta ao bundle do cliente)
-  const authHeader = process.env.MESH_AUTH_HEADER || process.env.VITE_MESH_AUTH_HEADER || '';
-
-  if (!authHeader) {
-    return res.status(500).json({
-      error: 'MESH_AUTH_HEADER não configurada nas variáveis de ambiente da Vercel.',
-    });
-  }
+  // Variavel de ambiente no servidor Vercel OU repasse do header do cliente
+  const clientAuth = (req.headers['authorization'] as string) || '';
+  const authHeader =
+    process.env.MESH_AUTH_HEADER ||
+    process.env.VITE_MESH_AUTH_HEADER ||
+    clientAuth ||
+    '';
 
   // Extrai o caminho e query string
   // Exemplo: /api/v1?path=node ou /api/v1/node?from=2026-11-12...
@@ -44,15 +43,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const targetUrl = `${BACKEND_BASE}/v1/${subPath}${queryString}`;
 
   try {
+    const headers: Record<string, string> = {
+      'Accept': 'application/json',
+    };
+    if (authHeader) {
+      headers['Authorization'] = authHeader;
+    }
+
     const backendRes = await fetch(targetUrl, {
       method: 'GET',
-      headers: {
-        'Authorization': authHeader,
-        'Accept': 'application/json',
-      },
+      headers,
     });
 
-    const data = await backendRes.json();
+    const rawText = await backendRes.text();
+    let data: any;
+    try {
+      data = JSON.parse(rawText);
+    } catch {
+      data = { raw: rawText };
+    }
 
     // Cache suave de 2 segundos para evitar sobrecarga no backend
     res.setHeader('Cache-Control', 's-maxage=2, stale-while-revalidate=5');
