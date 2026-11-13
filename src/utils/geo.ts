@@ -79,17 +79,48 @@ export function getNodeColor(id: number): string {
 }
 
 /**
- * Verifica se uma posição tem fix de GPS confiável.
- *
- * Radio Meshtastic com GPS desligado ou sem visada de satelite continua
- * publicando o pacote de posicao, mas com `sat=0` e a coordenada fixa
- * configurada no firmware (ou a ultima conhecida). Esses valores podem
- * ficar varios quilometros do ponto real, entao nao devem ser usados
- * para posicionar o operador no mapa.
+ * Identifica se o nó é uma estação fixa, repetidora, roteador ou nó de infraestrutura.
+ * Esses rádios tipicamente operam em pontos fixos (morros, torres, bases)
+ * e usam coordenadas manuais (Fixed Position) no Meshtastic sem fix de satélite (sat=0).
  */
-export function hasGpsFix(pos: { sat?: number | null } | null | undefined): boolean {
+export function isStationOrRepeater(name?: string | null, role?: string | null): boolean {
+  if (!name && !role) return false;
+  const normalized = `${name || ''} ${role || ''}`.toUpperCase();
+  return (
+    normalized.includes('REP') ||
+    normalized.includes('AAAA') ||
+    normalized.includes('ROUTER') ||
+    normalized.includes('REPEATER') ||
+    normalized.includes('BASE') ||
+    normalized.includes('TORRE') ||
+    normalized.includes('FIXO') ||
+    normalized.includes('FIXED') ||
+    normalized.includes('GATEWAY') ||
+    normalized.includes('GW')
+  );
+}
+
+/**
+ * Verifica se uma posição tem fix confiável ou é uma estação fixa/repetidora configurada.
+ *
+ * Rádios móveis em campo necessitam de satélites (sat > 0) para evitar a coordenada de fábrica.
+ * Rádios de infraestrutura / repetidoras (como REP01, AAAA) utilizam coordenadas fixas
+ * válidas configuradas no rádio, mesmo que sat=0.
+ */
+export function hasGpsFix(
+  pos: { lat?: number | null; lon?: number | null; sat?: number | null } | null | undefined,
+  nodeName?: string | null,
+  role?: string | null
+): boolean {
   if (!pos) return false;
-  // Sem o campo `sat` (backend antigo), aceitamos a posicao.
+  if (pos.lat == null || pos.lon == null || (pos.lat === 0 && pos.lon === 0)) return false;
+
+  // Se for repetidora ou estação fixa conhecida, suas coordenadas configuradas são válidas
+  if (isStationOrRepeater(nodeName, role)) {
+    return true;
+  }
+
+  // Sem informação de satélites no payload, aceita se coordenadas forem plausíveis
   if (pos.sat == null) return true;
   return pos.sat > 0;
 }

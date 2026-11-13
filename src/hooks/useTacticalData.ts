@@ -81,6 +81,21 @@ export function useTacticalData() {
 
         const lastPos = enrichedPos && enrichedPos.length > 0 ? enrichedPos[enrichedPos.length - 1] : null;
 
+        // Extrai o nome real do rádio da malha Mesh.
+        // O backend Meshtastic envia campos short_name, long_name ou user.*.
+        const anyNode = node as any;
+        const resolvedName =
+          (typeof anyNode.long_name === 'string' && anyNode.long_name.trim()) ||
+          (typeof anyNode.short_name === 'string' && anyNode.short_name.trim()) ||
+          (typeof anyNode.user?.long_name === 'string' && anyNode.user.long_name.trim()) ||
+          (typeof anyNode.user?.short_name === 'string' && anyNode.user.short_name.trim()) ||
+          (typeof node.name === 'string' && !node.name.startsWith('NÓ-') && node.name.trim()) ||
+          existing?.name ||
+          `NÓ-${node.id}`;
+
+        const resolvedRole =
+          anyNode.role || anyNode.user?.role || existing?.role || undefined;
+
         // O ENLACE é considered vivo se houve QUALQUER pacote (posição ou
         // telemetria). A POSIÇÃO GPS é um dado separado e pode ser antiga.
         const positionAt = lastPos?.received_at ?? existing?.lastPositionAt ?? null;
@@ -111,7 +126,7 @@ export function useTacticalData() {
         if (node.current_telemetry && node.current_telemetry.bat <= 15 && (!existing?.current_telemetry || existing.current_telemetry.bat > 15)) {
           addAlert({
             nodeId: node.id,
-            nodeName: node.name || `Node ${node.id}`,
+            nodeName: resolvedName,
             type: 'battery_low',
             message: `Bateria crítica: ${node.current_telemetry.bat}%`,
           });
@@ -119,7 +134,10 @@ export function useTacticalData() {
 
         next[node.id] = {
           ...node,
-          name: node.name || existing?.name || `NÓ-${node.id}`,
+          name: resolvedName,
+          short_name: anyNode.short_name || anyNode.user?.short_name || existing?.short_name,
+          long_name: anyNode.long_name || anyNode.user?.long_name || existing?.long_name,
+          role: resolvedRole,
           current_telemetry: node.current_telemetry ?? existing?.current_telemetry ?? null,
           latest_positions: enrichedPos,
           lastSeen: newestEvent,

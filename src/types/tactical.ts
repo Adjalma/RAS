@@ -19,6 +19,10 @@ export interface PositionData {
 export interface LoraNode {
   id: number;
   name: string;
+  short_name?: string;
+  long_name?: string;
+  role?: string;
+  isFixed?: boolean;
   current_telemetry: TelemetryData | null;
   latest_positions: PositionData[] | null;
   // Campos derivados em tempo real no frontend:

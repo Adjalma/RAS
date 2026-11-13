@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
 import L from 'leaflet';
 import { LoraNode, MapTileLayer, PositionData, SerpenteFormation } from '../types/tactical';
-import { formatTacticalCoords, calculateDistanceMeters, hasGpsFix } from '../utils/geo';
+import { formatTacticalCoords, calculateDistanceMeters, hasGpsFix, isStationOrRepeater } from '../utils/geo';
 import { Layers, Crosshair, ZoomIn, ZoomOut, Radio, Satellite, Map as MapIcon, Loader2 } from 'lucide-react';
 
 interface TacticalMapProps {
@@ -59,9 +59,9 @@ function createTileLayer(layer: MapTileLayer): L.TileLayer {
     maxZoom: 19,
     maxNativeZoom: provider.maxZoom,
     minZoom: 2,
-    keepBuffer: 12,
-    updateInterval: 100,
-    updateWhenIdle: false,
+    keepBuffer: 3,
+    updateInterval: 120,
+    updateWhenIdle: true,
     crossOrigin: true,
     className: provider.className,
   });
@@ -122,15 +122,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   // no seletor, mas seu servidor é muito mais lento e só tem tiles nativos até z17.
   const [activeLayer, setActiveLayer] = useState<MapTileLayer>('osm');
   const [tilesLoading, setTilesLoading] = useState<boolean>(true);
-  const [mouseCoords, setMouseCoords] = useState<{ lat: number; lon: number } | null>(null);
-  const [zoomLevel, setZoomLevel] = useState<number>(13);
   const [isLayerMenuOpen, setIsLayerMenuOpen] = useState<boolean>(false);
+  const mouseCoordsRef = useRef<HTMLSpanElement | null>(null);
+  const zoomSpanRef = useRef<HTMLSpanElement | null>(null);
   const hasAutoCenteredRef = useRef(false);
 
   // Posições mais recentes válidas por nó.
-  // Um fix só é confiável quando o GPS reporta satélites. Radio com sat=0
-  // devolve a posição fixa do firmware (vários km do ponto real), então
-  // é tratado como "sem GPS" e não é desenhado no mapa.
+  // Operadores móveis necessitam de fix de satélite para evitar coordenada fixa do firmware.
+  // Rádios de infraestrutura / repetidoras (ex: AAAA, REP01) usam coordenadas fixas configuradas no rádio.
   const nodesWithValidPos = useMemo(() => {
     return nodes.filter((n) => {
       // Nos de ensaio ficam fora do mapa: sao ficticios e poluiriam a
@@ -145,7 +144,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         !isNaN(last.lat) &&
         !isNaN(last.lon) &&
         !(last.lat === 0 && last.lon === 0) &&
-        hasGpsFix(last)
+        hasGpsFix(last, n.name, n.role)
       );
     });
   }, [nodes]);
@@ -195,10 +194,14 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       .replace('{y}', String(py));
 
     map.on('mousemove', (e) => {
-      setMouseCoords({ lat: e.latlng.lat, lon: e.latlng.lng });
+      if (mouseCoordsRef.current) {
+        mouseCoordsRef.current.textContent = `${e.latlng.lat.toFixed(5)}°, ${e.latlng.lng.toFixed(5)}°`;
+      }
     });
     map.on('zoomend', () => {
-      setZoomLevel(map.getZoom());
+      if (zoomSpanRef.current) {
+        zoomSpanRef.current.textContent = `Z:${map.getZoom()}`;
+      }
     });
 
     mapInstanceRef.current = map;
@@ -320,25 +323,37 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
       }
 
       // HTML do ícone
-      // Quando o GPS é antigo mas o enlace esta vivo, o marcador fica
-      // esmaecido com selo de "GPS antigo" para nao passar por posicao atual.
+      const isRepeater = isStationOrRepeater(node.name, node.role);
       const posAgeMin = node.positionAgeMinutes ?? (latestPos.received_at
         ? Math.max(0, Math.round((Date.now() - new Date(latestPos.received_at).getTime()) / 60000))
         : null);
-      const isStaleGps = posAgeMin != null && posAgeMin > 15;
+      // Repetidoras fixas não são tratadas como "GPS antigo"
+      const isStaleGps = !isRepeater && posAgeMin != null && posAgeMin > 15;
       const opacity = isStaleGps ? 0.55 : 1;
 
       const markerHtml = `
         <div class="relative flex items-center justify-center cursor-pointer" style="width: 44px; height: 44px; margin-left: -22px; margin-top: -22px; opacity: ${opacity};">
           ${isStaleGps ? `<div class="absolute w-8 h-8 rounded-full border border-dashed" style="border-color: ${nodeColor}66;"></div>` : ''}
+          ${isRepeater ? `<div class="absolute w-9 h-9 rounded-full border border-dotted animate-pulse" style="border-color: ${nodeColor}99;"></div>` : ''}
           <div class="relative flex items-center justify-center w-7 h-7 rounded-full shadow-lg ${isSelected ? 'scale-125 ring-2 ring-white' : ''}" style="background: #0b1324; border: 2px solid ${nodeColor};">
-            <div class="w-full h-full flex items-center justify-center" style="transform: rotate(${heading}deg);">
-              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="${nodeColor}">
-                <path d="M12 2L4 20l8-4 8 4L12 2z"/>
+            ${isRepeater ? `
+              <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="${nodeColor}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4.9 19.1C1 15.2 1 8.8 4.9 4.9"/>
+                <path d="M7.8 16.2c-2.3-2.3-2.3-6.1 0-8.5"/>
+                <circle cx="12" cy="12" r="2" fill="${nodeColor}"/>
+                <path d="M16.2 7.8c2.3 2.3 2.3 6.1 0 8.5"/>
+                <path d="M19.1 4.9C23 8.8 23 15.2 19.1 19.1"/>
               </svg>
-            </div>
+            ` : `
+              <div class="w-full h-full flex items-center justify-center" style="transform: rotate(${heading}deg);">
+                <svg class="w-3 h-3" viewBox="0 0 24 24" fill="${nodeColor}">
+                  <path d="M12 2L4 20l8-4 8 4L12 2z"/>
+                </svg>
+              </div>
+            `}
           </div>
           <div class="absolute -top-6 whitespace-nowrap px-1.5 py-0.2 rounded text-[9px] font-tactical font-semibold flex items-center gap-1 shadow pointer-events-none" style="background: rgba(11, 19, 36, 0.95); border: 1px solid ${nodeColor}88; color: #fff;">
+            ${isRepeater ? `<span class="text-[8px] px-1 rounded bg-amber-500/30 text-amber-300 font-bold border border-amber-500/50">REP</span>` : ''}
             <span>${node.name}</span>
             ${batteryPercent != null ? `<span style="color: ${batColor}; font-weight: bold;">${batteryPercent}%</span>` : ''}
             ${isStaleGps ? `<span style="color: #fb923c; font-weight: bold;" title="Ultimo GPS ha ${posAgeMin} min">GPS ${posAgeMin}m</span>` : ''}
@@ -362,7 +377,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         if (moved.lat !== latestPos.lat || moved.lng !== latestPos.lon) {
           existingMarker.setLatLng([latestPos.lat, latestPos.lon]);
         }
-        const signature = `${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${posAgeMin}`;
+        const signature = `${node.name}|${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${isRepeater}|${Math.floor((posAgeMin || 0) / 5)}`;
         if (markerSignatureRef.current.get(node.id) !== signature) {
           existingMarker.setIcon(customIcon);
           markerSignatureRef.current.set(node.id, signature);
@@ -372,7 +387,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         newMarker.on('click', () => onSelectNode(node.id));
         newMarker.addTo(markersLayerRef.current!);
         markerCacheRef.current.set(node.id, newMarker);
-        markerSignatureRef.current.set(node.id, `${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${posAgeMin}`);
+        markerSignatureRef.current.set(node.id, `${node.name}|${isSelected}|${batteryPercent}|${heading}|${isStaleGps}|${isRepeater}|${Math.floor((posAgeMin || 0) / 5)}`);
       }
     });
 
@@ -510,13 +525,11 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
             <Crosshair className="w-3.5 h-3.5" />
             <span>GPS:</span>
           </div>
-          <span className="tracking-wider">
-            {mouseCoords
-              ? `${mouseCoords.lat.toFixed(5)}°, ${mouseCoords.lon.toFixed(5)}°`
-              : 'MONITORANDO MALHA'}
+          <span ref={mouseCoordsRef} className="tracking-wider">
+            MONITORANDO MALHA
           </span>
           <span className="text-slate-600">|</span>
-          <span className="text-orange-300 font-bold">Z:{zoomLevel}</span>
+          <span ref={zoomSpanRef} className="text-orange-300 font-bold">Z:12</span>
         </div>
       </div>
 
