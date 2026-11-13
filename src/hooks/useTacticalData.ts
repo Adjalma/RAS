@@ -66,7 +66,16 @@ export function useTacticalData() {
 
       // Remove nos de ensaio (simulador) que nao estao mais ativos: eles
       // nao vem do backend e ficariam na lista como se fossem radios reais.
-      const serverIds = new Set(incomingNodes.map((n) => n.id));
+      // Mapeia IDs para verificação de nós de ensaio
+      const serverIds = new Set(
+        incomingNodes.map((n) => {
+          const anyN = n as any;
+          const rawId = anyN.id ?? anyN.node_id ?? anyN.num;
+          return typeof rawId === 'string' && rawId.startsWith('!')
+            ? parseInt(rawId.slice(1), 16)
+            : Number(rawId);
+        })
+      );
       Object.keys(next).forEach((key) => {
         const id = Number(key);
         const node = next[id];
@@ -76,14 +85,56 @@ export function useTacticalData() {
       });
 
       incomingNodes.forEach((node) => {
-        const existing = next[node.id];
-        const enrichedPos = node.latest_positions ? enrichPositions(node.latest_positions) : existing?.latest_positions ?? null;
+        const anyNode = node as any;
+        const rawId = anyNode.id ?? anyNode.node_id ?? anyNode.num;
+        const effectiveId =
+          typeof rawId === 'string' && rawId.startsWith('!')
+            ? parseInt(rawId.slice(1), 16)
+            : Number(rawId);
 
+        if (!effectiveId || isNaN(effectiveId)) return;
+
+        const existing = next[effectiveId];
+
+        // Normalização de posições de qualquer formato de API (latest_positions, positions, last_position, lat/lon direto)
+        const rawPosList =
+          node.latest_positions ||
+          anyNode.positions ||
+          (anyNode.last_position ? [anyNode.last_position] : null) ||
+          (anyNode.position ? [anyNode.position] : null) ||
+          (anyNode.lat != null && anyNode.lon != null
+            ? [
+                {
+                  id: effectiveId,
+                  lat: anyNode.lat,
+                  lon: anyNode.lon,
+                  alt: anyNode.alt ?? 0,
+                  acc: anyNode.acc ?? 0,
+                  sat: anyNode.sat ?? 0,
+                  received_at: anyNode.received_at || anyNode.last_seen || new Date().toISOString(),
+                },
+              ]
+            : null);
+
+        const enrichedPos = rawPosList ? enrichPositions(rawPosList) : existing?.latest_positions ?? null;
         const lastPos = enrichedPos && enrichedPos.length > 0 ? enrichedPos[enrichedPos.length - 1] : null;
+
+        // Normalização de telemetria
+        const rawTelemetry =
+          node.current_telemetry ||
+          anyNode.telemetry ||
+          (anyNode.bat != null
+            ? {
+                id: effectiveId,
+                bat: anyNode.bat,
+                received_at: anyNode.received_at || anyNode.last_seen || new Date().toISOString(),
+              }
+            : null) ||
+          existing?.current_telemetry ||
+          null;
 
         // Extrai o nome real do rádio da malha Mesh.
         // O backend Meshtastic envia campos short_name, long_name ou user.*.
-        const anyNode = node as any;
         const resolvedName =
           (typeof anyNode.long_name === 'string' && anyNode.long_name.trim()) ||
           (typeof anyNode.short_name === 'string' && anyNode.short_name.trim()) ||
@@ -91,15 +142,14 @@ export function useTacticalData() {
           (typeof anyNode.user?.short_name === 'string' && anyNode.user.short_name.trim()) ||
           (typeof node.name === 'string' && !node.name.startsWith('NÓ-') && node.name.trim()) ||
           existing?.name ||
-          `NÓ-${node.id}`;
+          `NÓ-${effectiveId}`;
 
         const resolvedRole =
           anyNode.role || anyNode.user?.role || existing?.role || undefined;
 
-        // O ENLACE é considered vivo se houve QUALQUER pacote (posição ou
-        // telemetria). A POSIÇÃO GPS é um dado separado e pode ser antiga.
+        // O ENLACE é considerado vivo se houve QUALQUER pacote (posição ou telemetria).
         const positionAt = lastPos?.received_at ?? existing?.lastPositionAt ?? null;
-        const telemetryAt = node.current_telemetry?.received_at ?? existing?.current_telemetry?.received_at ?? null;
+        const telemetryAt = rawTelemetry?.received_at ?? existing?.current_telemetry?.received_at ?? null;
 
         const newestEvent = [positionAt, telemetryAt]
           .filter((v): v is string => !!v)
@@ -119,33 +169,31 @@ export function useTacticalData() {
           ? Math.max(0, Math.round((now - new Date(positionAt).getTime()) / 60000))
           : null;
 
-        // Positions podem vir vazias na janela; nesse caso o histórico
-        // completo do nó é consultado em background (ver fetchNodes).
-
         // Checa alerta de bateria crítica (< 15%)
-        if (node.current_telemetry && node.current_telemetry.bat <= 15 && (!existing?.current_telemetry || existing.current_telemetry.bat > 15)) {
+        if (rawTelemetry && rawTelemetry.bat <= 15 && (!existing?.current_telemetry || existing.current_telemetry.bat > 15)) {
           addAlert({
-            nodeId: node.id,
+            nodeId: effectiveId,
             nodeName: resolvedName,
             type: 'battery_low',
-            message: `Bateria crítica: ${node.current_telemetry.bat}%`,
+            message: `Bateria crítica: ${rawTelemetry.bat}%`,
           });
         }
 
-        next[node.id] = {
+        next[effectiveId] = {
           ...node,
+          id: effectiveId,
           name: resolvedName,
           short_name: anyNode.short_name || anyNode.user?.short_name || existing?.short_name,
           long_name: anyNode.long_name || anyNode.user?.long_name || existing?.long_name,
           role: resolvedRole,
-          current_telemetry: node.current_telemetry ?? existing?.current_telemetry ?? null,
+          current_telemetry: rawTelemetry,
           latest_positions: enrichedPos,
           lastSeen: newestEvent,
           lastPositionAt: positionAt,
           positionAgeMinutes,
           isOnline: status === 'active',
           status,
-          color: existing?.color || getNodeColor(node.id),
+          color: existing?.color || getNodeColor(effectiveId),
         };
       });
 
@@ -158,13 +206,47 @@ export function useTacticalData() {
     // Nodos sem posicoes na janela atual: busca o historico completo do no
     // para recuperar a ultima coordenada gravada (pode ser de horas atras).
     incomingNodes.forEach((node) => {
-      if (!node.latest_positions || node.latest_positions.length === 0) {
-        api.getNodeDetail(node.id).then((detail) => {
-          if (detail && detail.latest_positions && detail.latest_positions.length > 0) {
+      const anyNode = node as any;
+      const rawId = anyNode.id ?? anyNode.node_id ?? anyNode.num;
+      const effectiveId =
+        typeof rawId === 'string' && rawId.startsWith('!')
+          ? parseInt(rawId.slice(1), 16)
+          : Number(rawId);
+      if (!effectiveId) return;
+
+      const hasPos =
+        node.latest_positions && node.latest_positions.length > 0 ||
+        anyNode.positions && anyNode.positions.length > 0 ||
+        (anyNode.lat != null && anyNode.lon != null);
+
+      if (!hasPos) {
+        api.getNodeDetail(effectiveId).then((detail) => {
+          if (!detail) return;
+          const anyDetail = detail as any;
+          const detailPosList =
+            detail.latest_positions ||
+            anyDetail.positions ||
+            (anyDetail.last_position ? [anyDetail.last_position] : null) ||
+            (anyDetail.position ? [anyDetail.position] : null) ||
+            (anyDetail.lat != null && anyDetail.lon != null
+              ? [
+                  {
+                    id: effectiveId,
+                    lat: anyDetail.lat,
+                    lon: anyDetail.lon,
+                    alt: anyDetail.alt ?? 0,
+                    acc: anyDetail.acc ?? 0,
+                    sat: anyDetail.sat ?? 0,
+                    received_at: anyDetail.received_at || anyDetail.last_seen || new Date().toISOString(),
+                  },
+                ]
+              : null);
+
+          if (detailPosList && detailPosList.length > 0) {
             setNodes((prev) => {
-              const curr = prev[node.id];
+              const curr = prev[effectiveId];
               if (!curr) return prev;
-              const enriched = enrichPositions(detail.latest_positions || []);
+              const enriched = enrichPositions(detailPosList);
               const lastPos = enriched[enriched.length - 1];
               const positionAt = lastPos.received_at;
               const newest = [positionAt, curr.current_telemetry?.received_at]
@@ -180,10 +262,22 @@ export function useTacticalData() {
                 else status = 'offline';
               }
 
+              const resolvedName =
+                (typeof anyDetail.long_name === 'string' && anyDetail.long_name.trim()) ||
+                (typeof anyDetail.short_name === 'string' && anyDetail.short_name.trim()) ||
+                (typeof anyDetail.user?.long_name === 'string' && anyDetail.user.long_name.trim()) ||
+                (typeof anyDetail.user?.short_name === 'string' && anyDetail.user.short_name.trim()) ||
+                (typeof detail.name === 'string' && !detail.name.startsWith('NÓ-') && detail.name.trim()) ||
+                curr.name;
+
               return {
                 ...prev,
-                [node.id]: {
+                [effectiveId]: {
                   ...curr,
+                  name: resolvedName,
+                  short_name: anyDetail.short_name || anyDetail.user?.short_name || curr.short_name,
+                  long_name: anyDetail.long_name || anyDetail.user?.long_name || curr.long_name,
+                  role: anyDetail.role || anyDetail.user?.role || curr.role,
                   latest_positions: enriched,
                   lastPositionAt: positionAt,
                   lastSeen: newest,

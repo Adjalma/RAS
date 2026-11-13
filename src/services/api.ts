@@ -69,8 +69,10 @@ export class TacticalApiClient {
       const stamp = from.toISOString().slice(0, 19);
       query = `?from=${encodeURIComponent(stamp)}`;
     }
-    const data = await this.request<NodeListResponse>(`/v1/node${query}`);
-    return data.nodes || [];
+    const data = await this.request<any>(`/v1/node${query}`);
+    if (Array.isArray(data)) return data;
+    if (data && Array.isArray(data.nodes)) return data.nodes;
+    return [];
   }
 
   /**
@@ -78,8 +80,8 @@ export class TacticalApiClient {
    * Retorna histórico completo do rastreador especificado
    */
   async getNodeDetail(nodeId: number): Promise<LoraNode> {
-    const data = await this.request<NodeDetailResponse>(`/v1/node/${nodeId}`);
-    return data.node;
+    const data = await this.request<any>(`/v1/node/${nodeId}`);
+    return data?.node || data;
   }
 }
 
