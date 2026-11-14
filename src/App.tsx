@@ -59,7 +59,7 @@ export const App: React.FC = () => {
   const activeNodesCount = nodes.filter((n) => n.status === 'active').length;
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden bg-[#070b12] text-slate-100 select-none">
+    <div className="flex flex-col h-screen min-h-0 w-screen overflow-hidden bg-[#070b12] text-slate-100 select-none">
       {/* 1. Header Tático HUD Superior */}
       <HeaderHUD
         connectionStatus={connectionStatus}

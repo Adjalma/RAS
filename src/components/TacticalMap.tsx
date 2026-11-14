@@ -505,7 +505,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   };
 
   return (
-    <div className="relative w-full h-full flex-1 overflow-hidden bg-[#070b12]">
+    <div className="relative w-full h-full min-h-0 flex-1 overflow-hidden bg-[#070b12] touch-pan-x touch-pan-y">
       <div ref={mapContainerRef} className="w-full h-full z-0" />
 
       {/* Indicador de carregamento de tiles */}
