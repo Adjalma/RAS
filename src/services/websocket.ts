@@ -73,8 +73,8 @@ export class TacticalWebSocketService {
     this.listeners.forEach((l) => l.onMessage(msg));
   }
 
-  /** Registra que houve dados recebidos com sucesso. */
-  private markData() {
+  /** Registra que houve dados recebidos com sucesso (via WS ou polling REST). */
+  public markData() {
     this.lastDataAt = Date.now();
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       if (this.status !== 'connected') {

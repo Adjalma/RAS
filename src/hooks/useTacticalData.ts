@@ -306,6 +306,7 @@ export function useTacticalData() {
       const raw = await api.getNodes(config.trailDurationHours);
       processNodesList(raw);
       setError(null);
+      wsService.markData();
       return true;
     } catch (err: any) {
       console.error('[Tactical] Erro ao sincronizar nós:', err);
