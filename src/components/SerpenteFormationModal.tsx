@@ -118,36 +118,36 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
   });
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 font-tactical select-none">
-      <div className="w-full max-w-2xl bg-[#0b1324] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+    <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-2 sm:p-4 font-tactical select-none">
+      <div className="w-full max-w-2xl bg-[#0b1324] border border-cyan-500/40 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh]">
         {/* Cabeçalho */}
-        <div className="p-4 border-b border-cyan-500/20 bg-slate-950/70 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-400">
-              <Users className="w-5 h-5" />
+        <div className="p-3 sm:p-4 border-b border-cyan-500/20 bg-slate-950/70 flex items-center justify-between">
+          <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+            <div className="p-2 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-400 flex-shrink-0">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
-            <div>
-              <h2 className="text-base font-bold text-slate-100 tracking-wider">
-                CONTROLE DE MÚLTIPLAS SERPENTES TÁTICAS
+            <div className="min-w-0">
+              <h2 className="text-sm sm:text-base font-bold text-slate-100 tracking-wider truncate">
+                SERPENTES TÁTICAS
               </h2>
-              <p className="text-[11px] text-slate-400">
-                Monitoramento simultâneo de 2 pelotões em marcha pelo mapa
+              <p className="text-[10px] sm:text-[11px] text-slate-400 truncate">
+                Monitoramento simultâneo de pelotões em marcha
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-2 sm:p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors active:scale-95"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Seletor de Serpentes: 1 e 2 */}
-        <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-4 pt-2 gap-3 text-xs">
+        <div className="flex items-center border-b border-slate-800 bg-slate-950/60 px-2 sm:px-4 pt-1 sm:pt-2 gap-1 sm:gap-3 text-xs overflow-x-auto">
           <button
             onClick={() => setActiveTab('serpente_1')}
-            className={`px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 ${
               activeTab === 'serpente_1'
                 ? 'border-cyan-400 text-cyan-300 bg-cyan-950/30'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -164,7 +164,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
 
           <button
             onClick={() => setActiveTab('serpente_2')}
-            className={`px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-2 ${
+            className={`px-3 sm:px-4 py-2 border-b-2 font-bold transition-all flex items-center gap-1.5 sm:gap-2 flex-shrink-0 active:scale-95 ${
               activeTab === 'serpente_2'
                 ? 'border-orange-500 text-orange-400 bg-orange-950/30'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
@@ -181,7 +181,7 @@ export const SerpenteFormationModal: React.FC<SerpenteFormationModalProps> = ({
         </div>
 
         {/* Conteúdo da Serpente Ativa */}
-        <div className="p-5 overflow-y-auto flex-1 flex flex-col gap-4 text-xs">
+        <div className="p-3 sm:p-5 overflow-y-auto flex-1 flex flex-col gap-3 sm:gap-4 text-xs">
           {!currentActiveForm?.isOpen ? (
             /* Inicializar Formação */
             <div className="flex flex-col gap-4">

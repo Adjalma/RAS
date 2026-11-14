@@ -63,24 +63,24 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({
   }));
 
   return (
-    <div className="fixed inset-y-0 right-0 z-40 w-full sm:w-[460px] bg-[#0b1324]/98 backdrop-blur-xl border-l border-cyan-500/30 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 font-tactical">
+    <div className="fixed inset-y-0 right-0 z-50 w-full sm:w-[460px] max-w-full bg-[#0b1324]/98 backdrop-blur-xl border-l border-cyan-500/30 shadow-2xl flex flex-col animate-in slide-in-from-right duration-300 font-tactical">
       {/* Topo do Drawer */}
-      <div className="p-4 border-b border-cyan-500/20 flex items-center justify-between bg-slate-950/60">
-        <div className="flex items-center gap-3">
+      <div className="p-3.5 sm:p-4 border-b border-cyan-500/20 flex items-center justify-between bg-slate-950/70">
+        <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
           <div
-            className="w-3.5 h-3.5 rounded-full shadow-cyan-glow"
+            className="w-3.5 h-3.5 flex-shrink-0 rounded-full shadow-cyan-glow"
             style={{ backgroundColor: node.color || '#06b6d4' }}
           />
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-slate-100 tracking-wider">
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+              <h2 className="text-sm sm:text-base font-bold text-slate-100 tracking-wider truncate">
                 {node.name}
               </h2>
-              <span className="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">
+              <span className="text-[10px] sm:text-[11px] px-1.5 sm:px-2 py-0.5 rounded bg-slate-800 text-cyan-300 border border-slate-700">
                 ID: {node.id}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[10px] sm:text-[11px] text-slate-400">
               Status: <span className={node.status === 'active' ? 'text-emerald-400 font-bold' : 'text-slate-500'}>{node.status?.toUpperCase() || 'OFFLINE'}</span>
             </p>
           </div>
@@ -88,7 +88,8 @@ export const NodeDetailDrawer: React.FC<NodeDetailDrawerProps> = ({
 
         <button
           onClick={onClose}
-          className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-2 sm:p-1.5 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition-colors active:scale-95"
+          title="Fechar"
         >
           <X className="w-5 h-5" />
         </button>

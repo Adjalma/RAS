@@ -518,8 +518,8 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         </div>
       )}
 
-      {/* HUD Superior Esquerdo */}
-      <div className="absolute top-3 left-3 z-[400] flex flex-col gap-1 pointer-events-none">
+      {/* HUD Superior Esquerdo (Oculto ou ultra-compacto no Mobile para não colidir com controles) */}
+      <div className="hidden sm:flex absolute top-3 left-3 z-[400] flex-col gap-1 pointer-events-none">
         <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/30 px-3 py-1 rounded-lg shadow-xl text-xs font-tactical text-slate-200 flex items-center gap-2.5">
           <div className="flex items-center gap-1.5 text-orange-400 font-bold">
             <Crosshair className="w-3.5 h-3.5" />
@@ -533,23 +533,23 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         </div>
       </div>
 
-      {/* HUD Controles */}
-      <div className="absolute top-3 right-3 z-[400] flex flex-col gap-2">
+      {/* HUD Controles Ergonomicos para Mobile e Desktop */}
+      <div className="absolute top-2.5 sm:top-3 right-2.5 sm:right-3 z-[400] flex flex-col gap-2">
         {/* Alternancia rapida entre OpenTopoMap e Camada Rapida (OSM / Sat) */}
         <button
           onClick={() => setActiveLayer((prev) => (prev === 'topo' ? 'osm' : 'topo'))}
-          className="px-2.5 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center gap-1.5 hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg font-tactical text-[10px] font-bold"
+          className="px-2 sm:px-2.5 h-10 sm:h-9 rounded-xl bg-slate-900/95 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center justify-center gap-1.5 hover:bg-orange-500 hover:text-slate-950 active:scale-95 transition-all shadow-xl font-tactical text-[10px] font-bold"
           title={activeLayer === 'topo' ? 'Trocar para Mapa Rápido (OSM)' : 'Trocar para OpenTopoMap (Relevo)'}
         >
           {activeLayer === 'topo' ? (
             <>
               <MapIcon className="w-4 h-4" />
-              <span>OSM (RÁPIDO)</span>
+              <span>OSM</span>
             </>
           ) : (
             <>
               <MapIcon className="w-4 h-4 text-emerald-400" />
-              <span>OPENTOPO</span>
+              <span>TOPO</span>
             </>
           )}
         </button>
@@ -557,38 +557,38 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         <div className="relative">
           <button
             onClick={() => setIsLayerMenuOpen((prev) => !prev)}
-            className="w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center justify-center hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg"
+            className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-900/95 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center justify-center hover:bg-orange-500 hover:text-slate-950 active:scale-95 transition-all shadow-xl"
             title="Camadas do Mapa"
           >
             <Layers className="w-4 h-4" />
           </button>
 
           {isLayerMenuOpen && (
-            <div className="absolute right-11 top-0 bg-slate-900/95 backdrop-blur-lg border border-orange-500/40 rounded-xl p-1.5 flex flex-col gap-1 w-48 shadow-2xl">
+            <div className="absolute right-12 top-0 bg-slate-900/98 backdrop-blur-lg border border-orange-500/40 rounded-xl p-1.5 flex flex-col gap-1 w-48 shadow-2xl z-50">
               <div className="text-[10px] font-tactical text-slate-400 px-2 py-1 uppercase tracking-wider border-b border-slate-800">
                 Camadas Táticas
               </div>
               <button
                 onClick={() => { setActiveLayer('topo'); setIsLayerMenuOpen(false); }}
-                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'topo' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
+                className={`text-left px-2 py-2 rounded text-xs font-tactical ${activeLayer === 'topo' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 🗺️ OpenTopoMap (Relevo)
               </button>
               <button
                 onClick={() => { setActiveLayer('satellite'); setIsLayerMenuOpen(false); }}
-                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'satellite' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
+                className={`text-left px-2 py-2 rounded text-xs font-tactical ${activeLayer === 'satellite' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 🛰️ Satélite Militar HD
               </button>
               <button
                 onClick={() => { setActiveLayer('dark'); setIsLayerMenuOpen(false); }}
-                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'dark' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
+                className={`text-left px-2 py-2 rounded text-xs font-tactical ${activeLayer === 'dark' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 🕶️ Cyber Dark Tático
               </button>
               <button
                 onClick={() => { setActiveLayer('osm'); setIsLayerMenuOpen(false); }}
-                className={`text-left px-2 py-1.5 rounded text-xs font-tactical ${activeLayer === 'osm' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
+                className={`text-left px-2 py-2 rounded text-xs font-tactical ${activeLayer === 'osm' ? 'bg-orange-500/20 text-orange-300 font-bold border border-orange-500/40' : 'text-slate-300 hover:bg-slate-800'}`}
               >
                 🌐 OpenStreetMap Claro
               </button>
@@ -599,38 +599,38 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         {/* Centralizar Frota */}
         <button
           onClick={handleFitAll}
-          className="w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center justify-center hover:bg-orange-500 hover:text-slate-950 transition-all shadow-lg"
+          className="w-10 h-10 sm:w-9 sm:h-9 rounded-xl bg-slate-900/95 backdrop-blur-md border border-orange-500/40 text-orange-400 flex items-center justify-center hover:bg-orange-500 hover:text-slate-950 active:scale-95 transition-all shadow-xl"
           title="Centralizar Todos os Rastreadores"
         >
           <Crosshair className="w-4 h-4" />
         </button>
 
+        {/* Controles de Zoom (No celular usa pinch gesture com dois dedos) */}
         <button
           onClick={() => mapInstanceRef.current?.zoomIn()}
-          className="w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 flex items-center justify-center hover:bg-slate-800 transition-all"
+          className="hidden sm:flex w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 items-center justify-center hover:bg-slate-800 transition-all active:scale-95"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
         <button
           onClick={() => mapInstanceRef.current?.zoomOut()}
-          className="w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 flex items-center justify-center hover:bg-slate-800 transition-all"
+          className="hidden sm:flex w-9 h-9 rounded-lg bg-slate-900/90 backdrop-blur-md border border-slate-700 text-slate-200 items-center justify-center hover:bg-slate-800 transition-all active:scale-95"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
       </div>
 
-      {/* HUD Inferior */}
-      <div className="absolute bottom-3 left-3 z-[400] flex items-center gap-2">
-        <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/30 px-3 py-1.5 rounded-lg shadow-xl flex items-center gap-3 text-xs font-tactical">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-orange-400 animate-ping" />
-            <span className="text-slate-400">NÓS NO MAPA:</span>
-            <span className="text-orange-400 font-bold">{nodesWithValidPos.length} / {nodes.length}</span>
+      {/* HUD Inferior Responsivo */}
+      <div className="absolute bottom-2.5 sm:bottom-3 left-2.5 sm:left-3 z-[400] flex items-center gap-2 pointer-events-none">
+        <div className="bg-slate-900/90 backdrop-blur-md border border-orange-500/30 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg shadow-xl flex items-center gap-2 sm:gap-3 text-[10px] sm:text-xs font-tactical">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <span className="w-1.5 sm:w-2 h-1.5 sm:h-2 rounded-full bg-orange-400 animate-ping" />
+            <span className="text-slate-400 hidden xs:inline">NÓS:</span>
+            <span className="text-orange-400 font-bold">{nodesWithValidPos.length}/{nodes.length}</span>
           </div>
-          <div className="h-3.5 w-px bg-slate-800" />
-          <div className="flex items-center gap-1.5 text-slate-400">
-            <Radio className="w-3.5 h-3.5 text-emerald-400" />
-            <span>MALHA:</span>
+          <div className="h-3 w-px bg-slate-800" />
+          <div className="flex items-center gap-1 text-slate-400">
+            <Radio className="w-3 h-3 text-emerald-400" />
             <span className="text-emerald-400 font-bold">ATIVA</span>
           </div>
         </div>

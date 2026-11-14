@@ -83,23 +83,42 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
     return <Battery className="w-4 h-4 text-emerald-400" />;
   };
 
-  return (
-    <aside
-      className={`relative z-20 h-full bg-[#0b1324]/95 backdrop-blur-md border-r border-cyan-500/20 flex flex-col transition-all duration-300 ${
-        isOpen ? 'w-80 sm:w-96' : 'w-0'
-      }`}
-    >
-      {/* Botão de Toggle Sidebar */}
-      <button
-        onClick={onToggleOpen}
-        className="absolute -right-7 top-4 z-30 w-7 h-10 bg-[#0b1324] border border-l-0 border-cyan-500/30 rounded-r-md flex items-center justify-center text-cyan-400 hover:text-white transition-colors shadow-lg"
-        title={isOpen ? 'Recolher Painel' : 'Expandir Painel'}
-      >
-        {isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-      </button>
+  const handleSelectNode = (id: number) => {
+    onSelectNode(id);
+    // No celular, fecha a sidebar automaticamente para exibir o nó no mapa
+    if (typeof window !== 'undefined' && window.innerWidth < 768) {
+      onToggleOpen();
+    }
+  };
 
+  return (
+    <>
+      {/* Backdrop no Mobile quando a barra está aberta */}
       {isOpen && (
-        <div className="flex flex-col h-full overflow-hidden p-3 gap-3">
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-30 md:hidden animate-in fade-in duration-200"
+          onClick={onToggleOpen}
+        />
+      )}
+
+      <aside
+        className={`z-40 h-full bg-[#0b1324]/98 backdrop-blur-xl border-r border-cyan-500/30 flex flex-col transition-all duration-300 ${
+          isOpen
+            ? 'fixed inset-y-0 left-0 w-[85vw] max-w-sm md:relative md:w-80 lg:w-96 shadow-2xl'
+            : 'w-0 -translate-x-full md:translate-x-0 overflow-hidden'
+        }`}
+      >
+        {/* Botão de Toggle Sidebar */}
+        <button
+          onClick={onToggleOpen}
+          className="absolute -right-8 sm:-right-7 top-3 sm:top-4 z-40 w-8 h-11 sm:w-7 sm:h-10 bg-[#0b1324] border border-l-0 border-cyan-500/30 rounded-r-lg flex items-center justify-center text-cyan-400 hover:text-white transition-colors shadow-2xl active:scale-95"
+          title={isOpen ? 'Recolher Painel' : 'Expandir Painel'}
+        >
+          {isOpen ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+        </button>
+
+        {isOpen && (
+          <div className="flex flex-col h-full overflow-hidden p-3 gap-3 safe-area-pb">
           {/* Topo do painel com Busca */}
           <div className="flex flex-col gap-2">
             <div className="relative">
@@ -184,8 +203,8 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
                 return (
                   <div
                     key={node.id}
-                    onClick={() => onSelectNode(node.id)}
-                    className={`p-3 rounded-xl border cursor-pointer transition-all duration-200 select-none ${
+                    onClick={() => handleSelectNode(node.id)}
+                    className={`p-2.5 sm:p-3 rounded-xl border cursor-pointer transition-all duration-200 select-none active:scale-[0.98] ${
                       isSelected
                         ? 'bg-cyan-950/40 border-cyan-400 shadow-cyan-glow ring-1 ring-cyan-400/50'
                         : 'bg-slate-900/60 border-slate-800/80 hover:border-cyan-500/30 hover:bg-slate-900/90'
@@ -314,5 +333,6 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
         </div>
       )}
     </aside>
+    </>
   );
 };

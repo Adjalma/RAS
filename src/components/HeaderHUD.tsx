@@ -81,26 +81,31 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
   const statusBadge = getStatusBadge();
 
   return (
-    <header className="h-14 bg-[#0b1324]/95 backdrop-blur-md border-b border-cyan-500/20 px-4 flex items-center justify-between z-30 select-none">
+    <header className="h-12 sm:h-14 bg-[#0b1324]/95 backdrop-blur-md border-b border-cyan-500/20 px-2 sm:px-4 flex items-center justify-between z-30 select-none">
       {/* Identidade Oficial: RAS - Divisão de Rastreamento dos Legendários */}
-      <div className="flex items-center gap-3">
-        <div className="relative flex items-center justify-center w-11 h-11 rounded-full p-0.5 bg-gradient-to-tr from-orange-600 via-slate-800 to-amber-500 shadow-xl shadow-orange-950/70 ring-1 ring-orange-500/50">
+      <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+        <div className="relative flex-shrink-0 flex items-center justify-center w-8 h-8 sm:w-11 sm:h-11 rounded-full p-0.5 bg-gradient-to-tr from-orange-600 via-slate-800 to-amber-500 shadow-xl shadow-orange-950/70 ring-1 ring-orange-500/50">
           <img
             src="/logo.png"
             alt="RAS Logo Oficial"
             className="w-full h-full object-cover rounded-full"
           />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h1 className="text-base font-extrabold tracking-widest font-tactical text-slate-100 flex items-center gap-1.5">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <h1 className="text-sm sm:text-base font-extrabold tracking-widest font-tactical text-slate-100 flex items-center gap-1">
               <span className="text-orange-500 font-black drop-shadow-[0_0_12px_rgba(249,115,22,0.4)]">RAS</span>
             </h1>
-            <span className="text-[9px] uppercase font-tactical font-bold px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 tracking-wider">
-              LORA MESH
+            <span className="text-[8px] sm:text-[9px] uppercase font-tactical font-bold px-1 sm:px-1.5 py-0.2 rounded bg-orange-500/20 text-orange-400 border border-orange-500/40 tracking-wider">
+              MESH
             </span>
+            {/* Mini status no celular */}
+            <div className="flex md:hidden items-center gap-1 text-[10px] font-tactical font-bold px-1.5 py-0.5 rounded bg-slate-900 border border-slate-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="text-emerald-400">{activeNodes}/{totalNodes}</span>
+            </div>
           </div>
-          <p className="text-[11px] text-slate-400 font-tactical tracking-wide -mt-0.5">
+          <p className="hidden sm:block text-[11px] text-slate-400 font-tactical tracking-wide -mt-0.5 truncate">
             Divisão de Rastreamento dos Legendários
           </p>
         </div>
@@ -132,38 +137,38 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
       </div>
 
       {/* Controles de Ação Direita */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
         {/* Botão Novo Rastreador */}
         <button
           onClick={onOpenAddNode}
-          className="px-3 py-1.5 rounded-lg text-xs font-tactical flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-slate-950 font-bold border border-orange-400 shadow-orange-glow transition-all"
+          className="p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-tactical flex items-center gap-1.5 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-slate-950 font-bold border border-orange-400 shadow-orange-glow transition-all active:scale-95"
           title="Como conectar ou simular novo rádio LoRa"
         >
-          <Radio className="w-3.5 h-3.5 fill-slate-950" />
+          <Radio className="w-4 h-4 sm:w-3.5 sm:h-3.5 fill-slate-950" />
           <span className="hidden sm:inline">+ RASTREADOR</span>
         </button>
 
         {/* Botão Serpente */}
         <button
           onClick={onOpenSerpente}
-          className={`px-3 py-1.5 rounded-lg text-xs font-tactical flex items-center gap-2 transition-all border ${
+          className={`p-1.5 sm:px-3 sm:py-1.5 rounded-lg text-xs font-tactical flex items-center gap-1.5 sm:gap-2 transition-all border active:scale-95 ${
             isSerpenteOpen
               ? 'bg-cyan-500 text-slate-950 font-bold border-cyan-400 shadow-cyan-glow'
               : 'bg-slate-900/80 text-cyan-400 border-cyan-500/30 hover:bg-cyan-950/60'
           }`}
           title="Abrir ou Gerenciar Formação Tática Serpente"
         >
-          <Users className="w-3.5 h-3.5" />
+          <Users className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
           <span className="hidden sm:inline">SERPENTE</span>
           {isSerpenteOpen && (
             <span className="w-2 h-2 rounded-full bg-slate-950 animate-ping" />
           )}
         </button>
 
-        {/* Toggle Trilhas */}
+        {/* Toggle Trilhas (Oculto em celular) */}
         <button
           onClick={() => onToggleConfig('showTrails')}
-          className={`p-2 rounded-lg border text-xs font-tactical transition-colors ${
+          className={`hidden sm:flex p-2 rounded-lg border text-xs font-tactical transition-colors ${
             config.showTrails
               ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
               : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-300'
@@ -173,10 +178,10 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
           <Footprints className="w-4 h-4" />
         </button>
 
-        {/* Toggle Mesh Links */}
+        {/* Toggle Mesh Links (Oculto em celular) */}
         <button
           onClick={() => onToggleConfig('showMeshLinks')}
-          className={`p-2 rounded-lg border text-xs font-tactical transition-colors ${
+          className={`hidden md:flex p-2 rounded-lg border text-xs font-tactical transition-colors ${
             config.showMeshLinks
               ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
               : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-300'
@@ -186,10 +191,10 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
           <Share2 className="w-4 h-4" />
         </button>
 
-        {/* Toggle Áudio Bip */}
+        {/* Toggle Áudio Bip (Oculto em celular) */}
         <button
           onClick={() => onToggleConfig('soundAlerts')}
-          className={`p-2 rounded-lg border text-xs font-tactical transition-colors ${
+          className={`hidden sm:flex p-2 rounded-lg border text-xs font-tactical transition-colors ${
             config.soundAlerts
               ? 'bg-cyan-950/60 text-cyan-300 border-cyan-500/40'
               : 'bg-slate-900/60 text-slate-500 border-slate-800 hover:text-slate-300'
@@ -203,7 +208,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         {alertsCount > 0 && (
           <button
             onClick={onOpenAlerts}
-            className="relative p-2 rounded-lg bg-red-950/80 border border-red-500/50 text-red-400 hover:bg-red-900/60 transition-colors shadow-red-glow animate-pulse"
+            className="relative p-1.5 sm:p-2 rounded-lg bg-red-950/80 border border-red-500/50 text-red-400 hover:bg-red-900/60 transition-colors shadow-red-glow animate-pulse active:scale-95"
             title="Ver Alertas Táticos"
           >
             <ShieldAlert className="w-4 h-4" />
@@ -217,7 +222,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         <button
           onClick={onRefresh}
           disabled={isRefreshing}
-          className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors disabled:opacity-50"
+          className="p-1.5 sm:p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors disabled:opacity-50 active:scale-95"
           title="Forçar Atualização de Dados"
         >
           <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-cyan-400' : ''}`} />
@@ -226,7 +231,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         {/* Configurações */}
         <button
           onClick={onOpenSettings}
-          className="p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors"
+          className="p-1.5 sm:p-2 rounded-lg bg-slate-900/80 border border-slate-800 text-slate-300 hover:text-cyan-400 hover:border-cyan-500/40 transition-colors active:scale-95"
           title="Configurações de Rede & MQTT"
         >
           <Sliders className="w-4 h-4" />
