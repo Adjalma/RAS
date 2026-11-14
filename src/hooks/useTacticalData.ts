@@ -270,24 +270,25 @@ export function useTacticalData() {
                 (typeof detail.name === 'string' && !detail.name.startsWith('NÓ-') && detail.name.trim()) ||
                 curr.name;
 
-              return {
-                ...prev,
-                [effectiveId]: {
-                  ...curr,
-                  name: resolvedName,
-                  short_name: anyDetail.short_name || anyDetail.user?.short_name || curr.short_name,
-                  long_name: anyDetail.long_name || anyDetail.user?.long_name || curr.long_name,
-                  role: anyDetail.role || anyDetail.user?.role || curr.role,
-                  latest_positions: enriched,
-                  lastPositionAt: positionAt,
-                  lastSeen: newest,
-                  positionAgeMinutes: positionAt
-                    ? Math.max(0, Math.round((Date.now() - new Date(positionAt).getTime()) / 60000))
-                    : null,
-                  status,
-                  isOnline: status === 'active',
-                },
+              const updatedNode = {
+                ...curr,
+                name: resolvedName,
+                short_name: anyDetail.short_name || anyDetail.user?.short_name || curr.short_name,
+                long_name: anyDetail.long_name || anyDetail.user?.long_name || curr.long_name,
+                role: anyDetail.role || anyDetail.user?.role || curr.role,
+                latest_positions: enriched,
+                lastPositionAt: positionAt,
+                lastSeen: newest,
+                positionAgeMinutes: positionAt
+                  ? Math.max(0, Math.round((Date.now() - new Date(positionAt).getTime()) / 60000))
+                  : null,
+                status,
+                isOnline: status === 'active',
               };
+
+              const nextMap = { ...prev, [effectiveId]: updatedNode };
+              TacticalStorage.saveNodes(Object.values(nextMap));
+              return nextMap;
             });
           }
         }).catch(() => {});

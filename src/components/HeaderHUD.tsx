@@ -59,7 +59,7 @@ export const HeaderHUD: React.FC<HeaderHUDProps> = ({
         };
       case 'polling_fallback':
         return {
-          text: 'DEGRADADO · POLLING 4s',
+          text: 'MALHA ATIVA (4s)',
           color: 'text-cyan-400 bg-cyan-950/60 border-cyan-500/40',
           icon: <Activity className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />,
         };

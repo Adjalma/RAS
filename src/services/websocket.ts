@@ -73,12 +73,19 @@ export class TacticalWebSocketService {
     this.listeners.forEach((l) => l.onMessage(msg));
   }
 
-  /** Registra que houve dados recebidos, refreshando o estado para "connected". */
+  /** Registra que houve dados recebidos com sucesso. */
   private markData() {
     this.lastDataAt = Date.now();
-    if (this.status === 'polling_fallback' || this.status === 'disconnected' || this.status === 'error') {
-      this.status = 'connected';
-      this.listeners.forEach((l) => l.onStatusChange(this.status));
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      if (this.status !== 'connected') {
+        this.status = 'connected';
+        this.listeners.forEach((l) => l.onStatusChange(this.status));
+      }
+    } else {
+      if (this.status !== 'polling_fallback') {
+        this.status = 'polling_fallback';
+        this.listeners.forEach((l) => l.onStatusChange(this.status));
+      }
     }
   }
 
@@ -88,10 +95,13 @@ export class TacticalWebSocketService {
       return;
     }
 
-    this.notifyStatus('connecting');
+    // Só notifica "connecting" na primeira conexão ou se estiver desconectado,
+    // para não sobrescrever um polling de dados ativo.
+    if (this.status === 'disconnected') {
+      this.notifyStatus('connecting');
+    }
 
     try {
-      // Quando estamos no browser, conecta ao endpoint relativo do proxy do vite /ws
       let wsUri = this.url;
       if (typeof window !== 'undefined' && !this.url.startsWith('ws://') && !this.url.startsWith('wss://')) {
         const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -117,8 +127,6 @@ export class TacticalWebSocketService {
       };
 
       this.ws.onerror = () => {
-        // O browser nao permite o header Authorization no handshake do
-        // WebSocket. Quando o proxy nao esta disponivel, caimos no polling.
         this.startPollingFallback();
       };
 
@@ -177,7 +185,8 @@ export class TacticalWebSocketService {
   private scheduleReconnect() {
     if (this.isExplicitlyClosed || this.reconnectTimer != null) return;
     this.reconnectAttempts++;
-    const delay = Math.min(2000 * Math.pow(1.5, this.reconnectAttempts), 15000);
+    // Intervalo suave de tentativa de WebSocket sem travar o polling
+    const delay = Math.min(10000 * this.reconnectAttempts, 45000);
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       this.connect();
