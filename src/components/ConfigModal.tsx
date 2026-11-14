@@ -87,11 +87,14 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             </label>
             <input
               type="text"
+              placeholder="Vazio para usar o proxy relativo da Vercel"
               value={formData.apiBaseUrl}
               onChange={(e) => setFormData({ ...formData, apiBaseUrl: e.target.value })}
               className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400 font-mono"
-              required
             />
+            <span className="text-[10px] text-slate-500">
+              Deixe em branco para passar pelo proxy da Vercel (sem erro de CORS) ou use https://logistica.legendariosrio.com.br
+            </span>
           </div>
 
           {/* 2. WebSocket URL */}
@@ -117,10 +120,10 @@ export const ConfigModal: React.FC<ConfigModalProps> = ({
             </label>
             <input
               type="text"
+              placeholder="Basic <token>"
               value={formData.authHeader}
               onChange={(e) => setFormData({ ...formData, authHeader: e.target.value })}
               className="bg-slate-900 border border-slate-700 rounded-lg px-3 py-2 text-slate-100 focus:outline-none focus:border-cyan-400 font-mono"
-              required
             />
           </div>
 
