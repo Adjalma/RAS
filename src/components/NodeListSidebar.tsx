@@ -66,7 +66,7 @@ export const NodeListSidebar: React.FC<NodeListSidebarProps> = ({
     });
   }, [nodes, search, filter, hideSimulation]);
 
-  const formatAge = (dateStr?: string) => {
+  const formatAge = (dateStr?: string | null) => {
     if (!dateStr) return 'Sem contato';
     const seconds = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
     if (seconds < 60) return `há ${Math.max(0, seconds)}s`;

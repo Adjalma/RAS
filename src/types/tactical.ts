@@ -27,9 +27,9 @@ export interface LoraNode {
   latest_positions: PositionData[] | null;
   // Campos derivados em tempo real no frontend:
   /** Timestamp do último pacote de qualquer tipo (posição ou telemetria). */
-  lastSeen?: string;
+  lastSeen?: string | null;
   /** Timestamp do último pacote de POSIÇÃO com GPS. */
-  lastPositionAt?: string;
+  lastPositionAt?: string | null;
   /** Verdadeiro quando o rádio ainda transmite (enlace vivo). */
   isOnline?: boolean;
   /** Situação do enlace: active (<5m), stale (5-15m), offline (>15m). */

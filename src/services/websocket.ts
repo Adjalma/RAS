@@ -24,7 +24,7 @@ export class TacticalWebSocketService {
   private isExplicitlyClosed = false;
   private pingInterval: number | null = null;
   private pollingFallbackInterval: number | null = null;
-  private onPollingTick: (() => Promise<void>) | null = null;
+  private onPollingTick: (() => Promise<unknown>) | null = null;
   /** Ultimo instante em que houve trafego de dados (WS ou polling). */
   private lastDataAt = 0;
   private dataTimer: number | null = null;
@@ -43,7 +43,7 @@ export class TacticalWebSocketService {
     }
   }
 
-  setPollingFallback(tickFn: () => Promise<void>) {
+  setPollingFallback(tickFn: () => Promise<unknown>) {
     this.onPollingTick = tickFn;
   }
 
