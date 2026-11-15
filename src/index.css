@@ -81,9 +81,23 @@ textarea {
 }
 
 @supports (height: 100dvh) {
+  html,
+  body,
   #root {
     height: 100dvh;
   }
+}
+
+/* Flex containers precisam permitir que o mapa encolha sem perder altura. */
+#root > div {
+  min-height: 0;
+}
+
+.leaflet-container,
+.leaflet-map-pane,
+.leaflet-tile-pane {
+  width: 100%;
+  height: 100%;
 }
 
 .font-tactical {

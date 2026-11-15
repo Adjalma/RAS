@@ -205,10 +205,22 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
     });
 
     mapInstanceRef.current = map;
-    const timer = setTimeout(() => map.invalidateSize(), 150);
+
+    // O mapa nasce dentro de flex/drawers móveis; o tamanho inicial pode ser
+    // 0 durante a transição do layout. Recalcula após paint, resize e rotação.
+    const invalidate = () => {
+      if (mapInstanceRef.current) {
+        map.invalidateSize({ pan: false, debounceMoveend: true });
+      }
+    };
+    const timers = [150, 500, 1000].map((delay) => window.setTimeout(invalidate, delay));
+    window.addEventListener('resize', invalidate, { passive: true });
+    window.addEventListener('orientationchange', invalidate, { passive: true });
 
     return () => {
-      clearTimeout(timer);
+      timers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener('resize', invalidate);
+      window.removeEventListener('orientationchange', invalidate);
       map.remove();
       mapInstanceRef.current = null;
       markerCacheRef.current.clear();

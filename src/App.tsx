@@ -79,7 +79,7 @@ export const App: React.FC = () => {
       />
 
       {/* 2. Área Central de Operações */}
-      <div className="flex-1 flex relative overflow-hidden">
+      <div className="flex-1 min-h-0 min-w-0 flex relative overflow-hidden">
         {/* Sidebar de Dispositivos e Telemetria */}
         <NodeListSidebar
           nodes={nodes}
